@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/HomeFragment">
+
+    <fragment
+        android:id="@+id/ServerInfoFragment"
+        android:name="a.sac.jellyfindocumentsprovider.ui.fragments.WizardServerInfoFragment"
+        android:label="@string/first_fragment_label"
+        tools:layout="@layout/fragment_wizard_server_info">
+        <action
+            android:id="@+id/action_ServerInfoFragment_to_LibrarySelectionFragment"
+            app:destination="@id/LibrarySelectionFragment"
+            app:launchSingleTop="false"
+            app:popUpToInclusive="false" />
+    </fragment>
+    <fragment
+        android:id="@+id/LibrarySelectionFragment"
+        android:name="a.sac.jellyfindocumentsprovider.ui.fragments.WizardLibrarySelectionFragment"
+        android:label="@string/second_fragment_label"
+        tools:layout="@layout/fragment_library_selection">
+        <action
+            android:id="@+id/action_LibrarySelectionFragment_to_wizardUpdateDb"
+            app:destination="@id/wizardUpdateDb"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/wizardUpdateDb"
+            app:popUpToInclusive="true" />
+    </fragment>
+    <fragment
+        android:id="@+id/HomeFragment"
+        android:name="a.sac.jellyfindocumentsprovider.ui.fragments.HomeFragment"
+        android:label="Jellyfin Documents Provider"
+        tools:layout="@layout/fragment_home">
+        <action
+            android:id="@+id/action_home_to_ServerInfoFragment"
+            app:destination="@id/ServerInfoFragment"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/ServerInfoFragment"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_home_to_LibrarySelectionFragment"
+            app:destination="@id/LibrarySelectionFragment"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/LibrarySelectionFragment"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_HomeFragment_to_wizardUpdateDb"
+            app:destination="@id/wizardUpdateDb"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/wizardUpdateDb"
+            app:popUpToInclusive="true" />
+    </fragment>
+    <fragment
+        android:id="@+id/wizardUpdateDb"
+        android:name="a.sac.jellyfindocumentsprovider.ui.fragments.WizardUpdateDb"
+        android:label="Update Database"
+        tools:layout="@layout/fragment_wizard_update_db">
+        <action
+            android:id="@+id/action_wizardUpdateDb_to_home"
+            app:destination="@id/HomeFragment"
+            app:launchSingleTop="true"
+            app:popUpTo="@id/HomeFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+</navigation>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".ui.fragments.WizardUpdateDb">
+
+    <data>
+
+        <variable
+            name="vm"
+            type="a.sac.jellyfindocumentsprovider.ui.WizardViewModel" />
+    </data>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/rvMsgWindow"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="8dp"
+            android:text='@{vm.msgJoin}' />
+
+
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="100"
+            android:min="0"
+            android:padding="16dp"
+            android:progress="@{vm.progress}" />
+
+        <Button
+            android:id="@+id/btnOK"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:enabled="@{vm.progress==100}"
+            android:text='@{vm.progress == 100 ? "DONE!" : vm.progress + " %"}' />
+
+    </LinearLayout>
+</layout>

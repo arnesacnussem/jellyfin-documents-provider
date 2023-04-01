@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">JellyfinDocumentsProvider</string>
+    <string name="first_fragment_label">Server Information</string>
+    <string name="second_fragment_label">Select Media Library</string>
+</resources>
