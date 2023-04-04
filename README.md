@@ -5,7 +5,7 @@
 
 [![Nightly](https://github.com/arnesacnussem/jellyfin-documents-provider/actions/workflows/main.yml/badge.svg)](https://github.com/arnesacnussem/jellyfin-documents-provider/releases)
 
-Map [Jellyfin](https://jellyfin.org) to a Storage Provider to allow you use my favourite music
+Map [Jellyfin](https://jellyfin.org) to a DocumentsProvider to allow you use my favourite music
 player [Poweramp](https://powerampapp.com).
 
 # Features
