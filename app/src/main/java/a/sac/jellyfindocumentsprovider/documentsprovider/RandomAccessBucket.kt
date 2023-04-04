@@ -1,7 +1,9 @@
 package a.sac.jellyfindocumentsprovider.documentsprovider
 
-import a.sac.jellyfindocumentsprovider.TAG
-import android.util.Log
+import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
+import a.sac.jellyfindocumentsprovider.short
+import logcat.LogPriority
+import logcat.logcat
 import java.net.URL
 import java.nio.file.Path
 
@@ -11,32 +13,39 @@ object RandomAccessBucket {
     }
 
     private lateinit var tempFileRoot: Path
-    private val mapper = HashMap<String, ChunkedURLRandomAccess>()
+    private val mapper = HashMap<String, URLRandomAccess>()
     private val refCnt = HashMap<String, Int>()
 
+    fun getProxy(url: String, vf: VirtualFile) =
+        URLProxyFileDescriptorCallback(getRA(url, vf)) {
+            releaseRA(vf.documentId)
+        }
 
-    fun get(url: String, key: String): ChunkedURLRandomAccess {
+    private fun getRA(url: String, vf: VirtualFile): URLRandomAccess {
+        val key = vf.documentId
         synchronized(this) {
             refCnt[key] = refCnt.getOrDefault(key, 0) + 1
             if (mapper.containsKey(key))
                 return mapper[key]!!
-            else mapper[key] = getNewBlockDownloader(url, key)
+            else mapper[key] = newBufferedRA(url, vf)
 
-            Log.d(TAG, "get() called with: key = $key, refCnt = ${refCnt[key]}")
+            logcat(LogPriority.DEBUG) { "get(${key.short}): refCnt = ${refCnt[key]}" }
             return mapper[key]!!
         }
     }
 
-    fun release(key: String) {
+    private fun releaseRA(key: String) {
         synchronized(this) {
-            val orDefault = refCnt.getOrDefault(key, 0)
-            Log.d(TAG, "release() called with: id = $key, refCnt = $orDefault")
-            if (orDefault == 0) {
+            val after = refCnt.getOrDefault(key, 0) - 1
+            if (after <= 0) {
+                refCnt.remove(key)
                 val remove = mapper.remove(key)
-                remove?.release()
+                remove?.close()
             } else {
-                refCnt[key] = refCnt[key]!! - 1
+                refCnt[key] = after
             }
+
+            logcat(LogPriority.DEBUG) { "release(${key.short}): refCnt = $after" }
         }
     }
 
@@ -45,11 +54,11 @@ object RandomAccessBucket {
         it
     }
 
-    private fun getNewBlockDownloader(url: String, key: String) =
-        ChunkedURLRandomAccess(
-            id = key,
+    private fun newBufferedRA(url: String, vf: VirtualFile) =
+        BufferedURLRandomAccess(
+            vf = vf,
             url = URL(url),
-            chunkSizeMB = 1,
-            outputFile = newTempFile(key)
+            bufferSizeKB = 8,
+            bufferFile = newTempFile(vf.documentId)
         )
 }

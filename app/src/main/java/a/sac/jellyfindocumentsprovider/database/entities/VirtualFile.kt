@@ -1,5 +1,7 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
+import a.sac.jellyfindocumentsprovider.readable
+import a.sac.jellyfindocumentsprovider.short
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id
 import io.objectbox.annotation.Index
@@ -33,8 +35,12 @@ data class VirtualFile(
     val track: Int?,
     val artist: String?,
     val bitrate: Int?,
-    val thumbnail: Boolean = false,
-    val credentialId: Long
+    val credentialId: Long,
+    val albumId: String,
+    val albumCoverTag: String?
 ) {
     lateinit var credential: ToOne<Credential>
 }
+
+val VirtualFile.brief
+    get() = "VirtualFile(docId=${documentId.short}, name=$displayName, size=${size.readable}, flag=$flags)"

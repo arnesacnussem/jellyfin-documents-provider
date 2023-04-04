@@ -42,8 +42,3 @@ fun convertBytesToHumanReadable(bytes: Long): String {
 
     return "%.2f ${units[unitIndex]}".format(value)
 }
-
-val Long.HumanReadable: String
-    get() = convertBytesToHumanReadable(this)
-val Int.HumanReadable: String
-    get() = convertBytesToHumanReadable(this.toLong())

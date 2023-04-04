@@ -4,7 +4,9 @@ import a.sac.jellyfindocumentsprovider.R
 import a.sac.jellyfindocumentsprovider.TAG
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
+import a.sac.jellyfindocumentsprovider.database.entities.brief
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
+import a.sac.jellyfindocumentsprovider.short
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.database.Cursor
@@ -19,22 +21,27 @@ import android.os.storage.StorageManager
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
 import android.provider.MediaStore.Audio.AudioColumns
-import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.android.asCoroutineDispatcher
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import logcat.LogPriority
+import logcat.logcat
 import java.io.FileNotFoundException
+import java.net.HttpURLConnection
 import java.net.URL
 
 class DocumentsProvider : android.provider.DocumentsProvider() {
     private lateinit var jellyfinProvider: JellyfinProvider
     private val providerContext: Context by lazy { context!! }
     private val storageManager: StorageManager by lazy { providerContext.getSystemService(Context.STORAGE_SERVICE) as StorageManager }
-    private val fileHandler: Handler = HandlerThread(TAG)
+    private val fileHandler: Handler = HandlerThread(TAG + "file")
         .apply { start() }
         .let { Handler(it.looper) }
 
-    private fun <T> runOnFileHandler(function: suspend () -> T): T {
-        return runBlocking(fileHandler.asCoroutineDispatcher()) {
+    private fun <T> runOnHandler(handler: Handler, function: suspend () -> T): T {
+        return runBlocking(handler.asCoroutineDispatcher()) {
             function()
         }
     }
@@ -52,7 +59,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     }
 
     override fun queryRoots(projection: Array<out String>?): Cursor {
-        Log.i(TAG, "queryRoots: projection=$projection")
+        logcat { "queryRoots(): projection = $projection" }
         val result = MatrixCursor(projection ?: DEFAULT_ROOT_PROJECTION)
         if (ObjectBox.credentialBox.all.isEmpty()) {
             return result
@@ -64,8 +71,8 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
             val docId = DocType.R.docId(it.uid)
             root.add(Root.COLUMN_ROOT_ID, docId)
             root.add(Root.COLUMN_DOCUMENT_ID, docId)
-            root.add(Root.COLUMN_SUMMARY, "已选${it.library.size}媒体库")
-            root.add(Root.COLUMN_TITLE, "${it.username} - ${it.serverName}")
+            root.add(Root.COLUMN_SUMMARY, "${it.username}")
+            root.add(Root.COLUMN_TITLE, "${it.serverName}")
 
             // this provider only support "IS_CHILD" query.
             root.add(Root.COLUMN_FLAGS, Root.FLAG_SUPPORTS_IS_CHILD)
@@ -84,7 +91,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
 
 
     override fun queryDocument(documentId: String?, projection: Array<out String>?): Cursor {
-        Log.i(TAG, "queryDocument: id=$documentId, projection=$projection")
+        logcat { "queryDocument: id=$documentId, projection=$projection" }
         val result = MatrixCursor(resolveDocumentProjection(projection))
         if (documentId == null) return result
         when (getDocTypeByDocId(documentId)) {
@@ -115,10 +122,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     override fun queryChildDocuments(
         parentDocumentId: String?, projection: Array<out String>?, sortOrder: String?
     ): Cursor {
-        Log.i(
-            TAG,
-            "queryChildDocuments: parent=$parentDocumentId, projection=$projection, sort=$sortOrder"
-        )
+        logcat(LogPriority.INFO) { "queryChildDocuments: parent=$parentDocumentId, projection=$projection, sort=$sortOrder" }
         val cursor = MatrixCursor(resolveDocumentProjection(projection))
         val parentType = getDocTypeByDocId(parentDocumentId!!)
         val xid = extractUniqueId(parentDocumentId)
@@ -143,7 +147,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     }
 
     override fun isChildDocument(parentDocumentId: String?, documentId: String?): Boolean {
-        Log.i(TAG, "isChildDocument: parent=$parentDocumentId, document=$documentId")
+        logcat { "isChildDocument(): parentDocumentId = $parentDocumentId, documentId = $documentId" }
         getDocTypeByDocId(documentId!!)
         val parentType = getDocTypeByDocId(parentDocumentId!!)
         return when (getDocTypeByDocId(documentId)) {
@@ -170,46 +174,53 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     }
 
     override fun openDocumentThumbnail(
-        documentId: String?,
+        documentId: String,
         sizeHint: Point?,
         signal: CancellationSignal?
-    ): AssetFileDescriptor {
-        Log.d(
-            TAG,
-            "openDocumentThumbnail() called with: documentId = $documentId, sizeHint = $sizeHint, signal = $signal"
-        )
-        return runOnFileHandler {
-            val vf = ObjectBox.getVirtualFileByDocId(documentId!!)
-            val url = jellyfinProvider.resolveThumbnailURL(vf)
-            URLProxyFileDescriptorCallback(InMemoryURLRandomAccess(URL(url)))
-        }.let {
-            AssetFileDescriptor(
-                storageManager.openProxyFileDescriptor(
-                    ParcelFileDescriptor.MODE_READ_ONLY,
-                    it,
-                    fileHandler
-                ), 0, it.onGetSize()
-            )
+    ): AssetFileDescriptor? {
+        logcat { "openDocumentThumbnail(${documentId.short}): sizeHint = $sizeHint" }
+        // Check if documentId is not null, otherwise return null
+        return ObjectBox.getVirtualFileByDocId(documentId).let { virtualFile ->
+            jellyfinProvider.resolveThumbnailURL(virtualFile, sizeHint)?.let { url ->
+                logcat(LogPriority.VERBOSE) { "openDocumentThumbnail(${documentId.short}): resolved url=$url" }
+                val connection = URL(url).openConnection() as HttpURLConnection
+                val length = connection.contentLengthLong
+                val (read, write) = ParcelFileDescriptor.createPipe()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        if (signal?.isCanceled == true) return@launch
+                        ParcelFileDescriptor.AutoCloseOutputStream(write).use { output ->
+                            connection.inputStream.use { input ->
+                                input.copyTo(output)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Handle any exceptions that occur while downloading the thumbnail
+                        logcat(LogPriority.ERROR) { "openDocumentThumbnail: failed to get thumbnail file=${virtualFile.brief} url=$url \n${e.stackTraceToString()}" }
+                    }
+                }
+                AssetFileDescriptor(read, 0, length)
+            }
         }
+
     }
 
     @Throws(FileNotFoundException::class)
     override fun openDocument(
-        documentId: String?, mode: String?, signal: CancellationSignal?
-    ): ParcelFileDescriptor? {
-        Log.d(
-            TAG,
-            "openDocument() called with: documentId = $documentId, mode = $mode, signal = $signal"
-        )
-        return runOnFileHandler {
-            if (documentId == null) return@runOnFileHandler null
-            val vf = ObjectBox.getVirtualFileByDocId(documentId)
-            val url = jellyfinProvider.resolveFileURL(vf)
-            RandomAccessBucket.get(url, documentId)
-        }?.let {
+        documentId: String, mode: String?, signal: CancellationSignal?
+    ): ParcelFileDescriptor {
+        logcat { "openDocument(): documentId = $documentId, mode = $mode" }
+        return runOnHandler(fileHandler) {
+            ObjectBox.getVirtualFileByDocId(documentId).let { vf ->
+                jellyfinProvider.resolveFileURL(vf).let { url ->
+                    RandomAccessBucket.getProxy(url, vf)
+
+                }
+            }
+        }.let { proxy ->
             storageManager.openProxyFileDescriptor(
-                ParcelFileDescriptor.parseMode(mode),
-                URLProxyFileDescriptorCallback(it),
+                ParcelFileDescriptor.MODE_READ_ONLY,
+                proxy,
                 fileHandler
             )
         }
@@ -248,15 +259,6 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
         row.add(AudioColumns.TRACK, virtualFile.track)
         row.add(AudioColumns.ARTIST, virtualFile.artist)
         row.add(AudioColumns.BITRATE, virtualFile.bitrate)
-    }
-
-    private fun stacktraceWithVirtualFile(e: Exception, documentId: String) {
-        try {
-            val vf = ObjectBox.getVirtualFileByDocId(documentId)
-            Exception(vf.toString(), e).printStackTrace()
-        } catch (a: Exception) {
-            a.printStackTrace()
-        }
     }
 
     private fun resolveDocumentProjection(projection: Array<out String>?): Array<out String> {

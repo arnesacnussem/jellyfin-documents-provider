@@ -2,17 +2,18 @@ package a.sac.jellyfindocumentsprovider.jellyfin
 
 import a.sac.jellyfindocumentsprovider.MediaLibraryListItem
 import a.sac.jellyfindocumentsprovider.ServerInfo
-import a.sac.jellyfindocumentsprovider.TAG
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
+import a.sac.jellyfindocumentsprovider.logcat
 import android.content.Context
-import android.provider.DocumentsContract
-import android.util.Log
+import android.graphics.Point
+import android.provider.DocumentsContract.Document
 import android.webkit.MimeTypeMap
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.api.client.extensions.authenticateUserByName
@@ -28,6 +29,7 @@ import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.BaseItemDto
 import org.jellyfin.sdk.model.api.BaseItemDtoQueryResult
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.ImageFormat
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.SortOrder
@@ -72,16 +74,15 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
                 serverName = serverPublicSystemInfo.serverName ?: "Unknown Server",
                 library = HashMap()
             )
-            Log.i(TAG, "login: success uid=${result.user!!.id}")
+            logcat(LogPriority.INFO) {
+                "login(): auth success with userDto = ${result.user}"
+            }
             ObjectBox.credentialBox.put(cred)
             withCredential(cred)
             return@with cred
         } catch (err: InvalidStatusException) {
-            if (err.status == 401) {
-                // Username or password is incorrect
-                Log.e(TAG, "login: Invalid user")
-            } else {
-                Log.e(TAG, "login: Auth failed")
+            logcat(LogPriority.ERROR) {
+                "login(): auth failed $err"
             }
             throw AuthorizationException(err.message)
         }
@@ -90,7 +91,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
     suspend fun verifySavedCredential(credential: Credential) {
         try {
             val currentUser = withCredential(credential).userApi.getCurrentUser().content
-            Log.i(TAG, "verifySavedCredential: success, user=${currentUser}")
+            logcat(LogPriority.INFO) { "verifySavedCredential: success, user=${currentUser}" }
         } catch (e: IllegalStateException) {
             throw AuthorizationException("auth failed with saved credential ${e.message}")
         }
@@ -135,7 +136,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
                 ).content
             }
         } catch (e: Exception) {
-            println("Error querying Jellyfin API: ${e.message}")
+            logcat { "Error querying Jellyfin API: ${e.message}" }
             null
         }
     }
@@ -175,6 +176,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
                 onFetch = {
                     val vfs = it.map { dto -> toVirtualFile(dto, lib.id, credential) }
                     ObjectBox.virtualFileBox.put(vfs)
+                    //TODO: update cache info
                 })
         }
     }
@@ -206,7 +208,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         val ms = it.mediaSources?.first()!!
         var flag = 0
         if (it.albumId != null)
-            flag = flag or DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL
+            flag = flag or Document.FLAG_SUPPORTS_THUMBNAIL
         val vf = VirtualFile(
             documentId = it.id.toString(),
             mimeType = getMimeTypeFromExtension(ms.container!!)!!,
@@ -223,8 +225,9 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
             track = it.indexNumber ?: 0,
             artist = it.artists?.joinToString(", ") ?: "",
             bitrate = it.mediaSources?.first()?.bitrate ?: 0,
-            thumbnail = it.albumId != null,
-            credentialId = credential.id
+            albumId = it.albumId.toString(),
+            albumCoverTag = it.albumPrimaryImageTag,
+            credentialId = credential.id,
         )
 
         vf.credential.target = credential
@@ -247,11 +250,15 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
             includeCredentials = true
         )
 
-    fun resolveThumbnailURL(vf: VirtualFile): String? {
-        if (!vf.thumbnail) return null
+    fun resolveThumbnailURL(vf: VirtualFile, sizeHint: Point?): String? {
+        if (vf.albumCoverTag == null) return null
         return withCredential(vf).imageApi.getItemImageUrl(
-            UUID.fromString(vf.documentId),
-            ImageType.PRIMARY
+            UUID.fromString(vf.albumId),
+            ImageType.PRIMARY,
+            tag = vf.albumCoverTag,
+            height = sizeHint?.y,
+            width = sizeHint?.x,
+            format = ImageFormat.WEBP
         )
     }
 

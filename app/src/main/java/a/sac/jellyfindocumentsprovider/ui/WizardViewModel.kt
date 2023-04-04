@@ -1,5 +1,6 @@
 package a.sac.jellyfindocumentsprovider.ui
 
+import a.sac.jellyfindocumentsprovider.FixedCapacityList
 import a.sac.jellyfindocumentsprovider.MediaLibraryListItem
 import a.sac.jellyfindocumentsprovider.ServerInfo
 import a.sac.jellyfindocumentsprovider.TAG
@@ -27,18 +28,7 @@ class WizardViewModel @Inject constructor(
     val btnLoading = ObservableField(false)
     var currentUser: Credential? = null
     val progress = ObservableInt()
-    val msgJoin = ObservableField("whatever")
-    private val _message = ArrayList<String>()
-
-    fun clearMessage() {
-        _message.clear()
-    }
-
-    fun onMessage(msg: String) {
-        if (_message.size > 13) _message.removeAt(0)
-        _message.add(msg)
-        msgJoin.set(_message.joinToString("\n"))
-    }
+    val message = FixedCapacityList<String>(50)
 
     suspend fun testConnection() {
         btnLoading.set(true)

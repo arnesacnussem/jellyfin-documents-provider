@@ -1,29 +1,29 @@
 package a.sac.jellyfindocumentsprovider.documentsprovider
 
-import a.sac.jellyfindocumentsprovider.HumanReadable
-import a.sac.jellyfindocumentsprovider.TAG
+import a.sac.jellyfindocumentsprovider.readable
 import android.os.ProxyFileDescriptorCallback
-import android.util.Log
+import logcat.LogPriority
+import logcat.logcat
 
 class URLProxyFileDescriptorCallback(
-    private val ra: URLRandomAccess
+    private val ra: URLRandomAccess,
+    private val release: () -> Unit
 ) : ProxyFileDescriptorCallback() {
     override fun onGetSize(): Long {
         return ra.length
     }
 
     override fun onRead(offset: Long, size: Int, data: ByteArray): Int {
+        logcat(LogPriority.VERBOSE) { "onRead() called with: offset = $offset, size = $size" }
         val read = ra.read(offset, size, data)
         if (read != size)
-            Log.e(
-                TAG,
-                "onRead: read!=size [offset = ${offset.HumanReadable}, size = ${size.HumanReadable}, total = ${ra.length.HumanReadable}]"
-            )
+            logcat(LogPriority.WARN) { "onRead: read!=size [offset = ${offset.readable}, size = ${size.readable}, total = ${ra.length.readable}]" }
         return if (read <= 0) 0
         else read
 
     }
 
     override fun onRelease() {
+        release()
     }
 }

@@ -1,12 +1,12 @@
 package a.sac.jellyfindocumentsprovider.ui.fragments
 
 import a.sac.jellyfindocumentsprovider.R
-import a.sac.jellyfindocumentsprovider.TAG
 import a.sac.jellyfindocumentsprovider.databinding.FragmentWizardUpdateDbBinding
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
+import a.sac.jellyfindocumentsprovider.logcat
 import a.sac.jellyfindocumentsprovider.ui.WizardViewModel
+import a.sac.jellyfindocumentsprovider.ui.adapters.TextListAdapter
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -34,13 +35,15 @@ class WizardUpdateDb : Fragment() {
     ): View {
         _binding = FragmentWizardUpdateDbBinding.inflate(inflater, container, false)
         binding.vm = viewModel
+        binding.rvMsgWindow.layoutManager = LinearLayoutManager(requireContext())
+        binding.rvMsgWindow.adapter = TextListAdapter(viewModel.message)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.btnOK.setOnClickListener {
-            viewModel.clearMessage()
+            viewModel.message.clear()
             findNavController().navigate(R.id.action_wizardUpdateDb_to_home)
         }
         lifecycleScope.launch(Dispatchers.IO) {
@@ -52,8 +55,14 @@ class WizardUpdateDb : Fragment() {
                     viewModel.progress.set(it)
                 },
                 onMessage = {
-                    Log.d(TAG, "queryApiForLibraries: $it")
-                    viewModel.onMessage(it)
+                    this@WizardUpdateDb.logcat {
+                        "queryApiForLibraries(): $it"
+                    }
+                    viewModel.message.add(it)
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        binding.rvMsgWindow.adapter?.notifyDataSetChanged()
+
+                    }
                 }
             )
         }
