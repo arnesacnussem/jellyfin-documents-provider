@@ -47,6 +47,7 @@ class WizardUpdateDb : Fragment() {
             jellyfinProvider.queryApiForLibraries(
                 libraries = viewModel.libraryInfo.filter { it.checked },
                 batchSize = 300,
+                credential = viewModel.currentUser!!,
                 onProgress = {
                     viewModel.progress.set(it)
                 },

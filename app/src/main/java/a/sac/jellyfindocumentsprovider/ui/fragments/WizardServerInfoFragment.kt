@@ -1,8 +1,6 @@
 package a.sac.jellyfindocumentsprovider.ui.fragments
 
 import a.sac.jellyfindocumentsprovider.R
-import a.sac.jellyfindocumentsprovider.database.AppDatabase
-import a.sac.jellyfindocumentsprovider.database.dao.CredentialDao
 import a.sac.jellyfindocumentsprovider.databinding.FragmentWizardServerInfoBinding
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
 import a.sac.jellyfindocumentsprovider.ui.WizardViewModel
@@ -24,7 +22,6 @@ class WizardServerInfoFragment : Fragment() {
     private var _binding: FragmentWizardServerInfoBinding? = null
     private val binding get() = _binding!!
     private val vm: WizardViewModel by activityViewModels()
-    private lateinit var dao: CredentialDao
 
     @Inject
     lateinit var jellyfinProvider: JellyfinProvider
@@ -34,7 +31,6 @@ class WizardServerInfoFragment : Fragment() {
     ): View {
         _binding = FragmentWizardServerInfoBinding.inflate(inflater, container, false)
         binding.vm = vm
-        dao = AppDatabase.getDatabase(requireContext()).credentialDao()
         return binding.root
     }
 

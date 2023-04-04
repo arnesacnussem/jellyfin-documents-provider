@@ -1,7 +1,7 @@
 package a.sac.jellyfindocumentsprovider.ui.fragments
 
 import a.sac.jellyfindocumentsprovider.R
-import a.sac.jellyfindocumentsprovider.database.AppDatabase
+import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.databinding.FragmentHomeBinding
 import a.sac.jellyfindocumentsprovider.jellyfin.AuthorizationException
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
@@ -47,9 +47,8 @@ class HomeFragment : Fragment() {
     }
 
     private fun checkIfNeedWizard() {
-        val credentialDao = AppDatabase.getDatabase(requireContext()).credentialDao()
         lifecycleScope.launch(Dispatchers.IO) {
-            val all = credentialDao.loadAllUsers()
+            val all = ObjectBox.credentialBox.all
             if (all.isEmpty()) {
                 withContext(Dispatchers.Main) {
                     findNavController().navigate(R.id.action_home_to_ServerInfoFragment)
@@ -60,7 +59,7 @@ class HomeFragment : Fragment() {
             with(all[0]) {
                 val valid = try {
                     jellyfinProvider.verifySavedCredential(this)
-                    viewModel.credential = this
+                    viewModel.currentUser = this
                     true
                 } catch (e: AuthorizationException) {
                     withContext(Dispatchers.Main) {

@@ -25,7 +25,7 @@ class WizardViewModel @Inject constructor(
     val libraryInfo = ObservableArrayList<MediaLibraryListItem>()
     val serverInfoValid = ObservableField(false)
     val btnLoading = ObservableField(false)
-    var credential: Credential? = null
+    var currentUser: Credential? = null
     val progress = ObservableInt()
     val msgJoin = ObservableField("whatever")
     private val _message = ArrayList<String>()
@@ -44,7 +44,7 @@ class WizardViewModel @Inject constructor(
         btnLoading.set(true)
         val valid = try {
             serverInfo.get()?.let {
-                credential = jellyfinProvider.login(it)
+                currentUser = jellyfinProvider.login(it)
             }
             true
         } catch (e: Exception) {

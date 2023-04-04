@@ -10,7 +10,7 @@ import android.widget.ArrayAdapter
 import androidx.databinding.DataBindingUtil
 
 class LibrarySelectionListAdapter(
-    context: Context, var items: List<MediaLibraryListItem> = arrayListOf()
+    context: Context, private var items: List<MediaLibraryListItem> = arrayListOf()
 ) : ArrayAdapter<MediaLibraryListItem>(context, 0, items) {
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {

@@ -1,14 +1,15 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import io.objectbox.annotation.Entity
+import io.objectbox.annotation.Id
+import io.objectbox.annotation.Index
 
-@Entity()
+
+@Entity
 data class Credential(
-    /**
-     * server and user id
-     */
-    @PrimaryKey val uid: String,
+
+    @Id var id: Long = 0,
+    @Index val uid: String,
     val server: String,
     val token: String,
     val username: String,

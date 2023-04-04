@@ -1,12 +1,14 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
-import a.sac.jellyfindocumentsprovider.MediaInfo
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import io.objectbox.annotation.Entity
+import io.objectbox.annotation.Id
+import io.objectbox.annotation.Index
+import io.objectbox.relation.ToOne
 
-@Entity(tableName = "vFile")
+@Entity
 data class VirtualFile(
-    @PrimaryKey val id: String,
+    @Id var id: Long = 0,
+    @Index val documentId: String,
     val mimeType: String,
     val displayName: String,
     val lastModified: Long,
@@ -16,11 +18,23 @@ data class VirtualFile(
     /**
      * Library ID
      */
-    val lid: String,
+    @Index val libId: String,
+
     /**
      * User ID
      */
-    val uid: String,
+    @Index val uid: String,
 
-    val mediaInfo: MediaInfo
-)
+    /////////////////////// Media Info
+    val duration: Long?,
+    val year: Int?,
+    val title: String?,
+    val album: String?,
+    val track: Int?,
+    val artist: String?,
+    val bitrate: Int?,
+    val thumbnail: Boolean = false,
+    val credentialId: Long
+) {
+    lateinit var credential: ToOne<Credential>
+}

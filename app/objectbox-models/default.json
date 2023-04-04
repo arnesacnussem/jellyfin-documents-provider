@@ -1,0 +1,172 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:1235746307632234378",
+      "lastPropertyId": "7:1789127765383480533",
+      "name": "Credential",
+      "properties": [
+        {
+          "id": "1:8291886225640794872",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8551698847974340501",
+          "name": "uid",
+          "indexId": "1:3312718043522991212",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:1228609360862630598",
+          "name": "server",
+          "type": 9
+        },
+        {
+          "id": "4:1411159989260031585",
+          "name": "token",
+          "type": 9
+        },
+        {
+          "id": "5:5806664948826171169",
+          "name": "username",
+          "type": 9
+        },
+        {
+          "id": "6:3968021446817636740",
+          "name": "serverName",
+          "type": 9
+        },
+        {
+          "id": "7:1789127765383480533",
+          "name": "library",
+          "type": 13
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:1919414238785031605",
+      "lastPropertyId": "18:2038515522453913347",
+      "name": "VirtualFile",
+      "properties": [
+        {
+          "id": "1:4486094143252531692",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:545759159227804927",
+          "name": "documentId",
+          "indexId": "2:3008602019239891446",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:7682987848731953821",
+          "name": "mimeType",
+          "type": 9
+        },
+        {
+          "id": "4:7873077481163670144",
+          "name": "displayName",
+          "type": 9
+        },
+        {
+          "id": "5:4193312564634732094",
+          "name": "lastModified",
+          "type": 6
+        },
+        {
+          "id": "6:5458123978692740436",
+          "name": "flags",
+          "type": 5
+        },
+        {
+          "id": "7:2709809480550368524",
+          "name": "size",
+          "type": 6
+        },
+        {
+          "id": "8:7658261032577194070",
+          "name": "libId",
+          "indexId": "3:2826603606215000423",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "9:7518061092441817528",
+          "name": "uid",
+          "indexId": "4:1712300102169942871",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "10:7617956979543489830",
+          "name": "duration",
+          "type": 6
+        },
+        {
+          "id": "11:2703735422026465243",
+          "name": "year",
+          "type": 5
+        },
+        {
+          "id": "12:6083547318262048752",
+          "name": "title",
+          "type": 9
+        },
+        {
+          "id": "13:5666717537118443937",
+          "name": "album",
+          "type": 9
+        },
+        {
+          "id": "14:7042245294700392643",
+          "name": "track",
+          "type": 5
+        },
+        {
+          "id": "15:8409990586798479899",
+          "name": "artist",
+          "type": 9
+        },
+        {
+          "id": "16:7449917216950974492",
+          "name": "bitrate",
+          "type": 5
+        },
+        {
+          "id": "17:3670291625978755575",
+          "name": "thumbnail",
+          "type": 1
+        },
+        {
+          "id": "18:2038515522453913347",
+          "name": "credentialId",
+          "indexId": "5:5044554452570329703",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "Credential"
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "2:1919414238785031605",
+  "lastIndexId": "5:5044554452570329703",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [],
+  "retiredRelationUids": [],
+  "version": 1
+}

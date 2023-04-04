@@ -1,8 +1,7 @@
 package a.sac.jellyfindocumentsprovider.ui.fragments
 
 import a.sac.jellyfindocumentsprovider.R
-import a.sac.jellyfindocumentsprovider.database.AppDatabase
-import a.sac.jellyfindocumentsprovider.database.dao.CredentialDao
+import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.databinding.FragmentLibrarySelectionBinding
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
 import a.sac.jellyfindocumentsprovider.ui.WizardViewModel
@@ -30,7 +29,6 @@ class WizardLibrarySelectionFragment : Fragment() {
     private var _binding: FragmentLibrarySelectionBinding? = null
     private val binding get() = _binding!!
     private val viewModel by activityViewModels<WizardViewModel>()
-    private lateinit var credentialDao: CredentialDao
 
     @Inject
     lateinit var jellyfinProvider: JellyfinProvider
@@ -41,7 +39,6 @@ class WizardLibrarySelectionFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentLibrarySelectionBinding.inflate(inflater, container, false)
-        credentialDao = AppDatabase.getDatabase(requireContext()).credentialDao()
         return binding.root
     }
 
@@ -54,8 +51,8 @@ class WizardLibrarySelectionFragment : Fragment() {
                         .setAnchorView(R.id.fab).show()
                     return@launch
                 }
-                credentialDao.updateLibrary(
-                    viewModel.credential!!.uid,
+                ObjectBox.updateLibraryPreference(
+                    viewModel.currentUser!!.uid,
                     viewModel.libraryInfo.filter { it.checked }.associate { it.id to it.name }
                 )
                 withContext(Dispatchers.Main) {
@@ -67,14 +64,14 @@ class WizardLibrarySelectionFragment : Fragment() {
     }
 
     private fun loadMediaLibraryList() {
-        if (viewModel.credential == null) {
+        if (viewModel.currentUser == null) {
             Toast.makeText(requireContext(), "Credential not set!", Toast.LENGTH_SHORT).show()
             return
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val map = jellyfinProvider.getUserViews()
-            if (map.isEmpty()) {
+            val userView = jellyfinProvider.getUserViews(viewModel.currentUser!!)
+            if (userView.isEmpty()) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         requireContext(),
@@ -87,7 +84,7 @@ class WizardLibrarySelectionFragment : Fragment() {
 
             withContext(Dispatchers.Main) {
                 viewModel.libraryInfo.clear()
-                viewModel.libraryInfo.addAll(map)
+                viewModel.libraryInfo.addAll(userView)
                 binding.listview.adapter =
                     LibrarySelectionListAdapter(requireContext(), viewModel.libraryInfo)
             }

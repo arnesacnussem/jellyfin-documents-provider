@@ -1,10 +1,9 @@
 package a.sac.jellyfindocumentsprovider.jellyfin
 
-import a.sac.jellyfindocumentsprovider.MediaInfo
 import a.sac.jellyfindocumentsprovider.MediaLibraryListItem
 import a.sac.jellyfindocumentsprovider.ServerInfo
 import a.sac.jellyfindocumentsprovider.TAG
-import a.sac.jellyfindocumentsprovider.database.AppDatabase
+import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
 import android.content.Context
@@ -14,6 +13,7 @@ import android.webkit.MimeTypeMap
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jellyfin.sdk.api.client.ApiClient
 import org.jellyfin.sdk.api.client.exception.InvalidStatusException
 import org.jellyfin.sdk.api.client.extensions.authenticateUserByName
 import org.jellyfin.sdk.api.client.extensions.imageApi
@@ -42,24 +42,22 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         context = ctx
     }
     private val api = jellyfin.createApi()
-    private val db = AppDatabase.getDatabase(ctx)
 
 
+    /**
+     * Login with server info, will overwrite current login state
+     */
     @Throws(AuthorizationException::class, IllegalArgumentException::class)
     suspend fun login(info: ServerInfo) = with(info) {
-        if (api.accessToken?.isNotBlank() == true) {
-            return@with null
-        }
         if (baseUrl.isBlank()) {
             throw IllegalArgumentException("The baseUrl must not leave blank!")
         }
         api.baseUrl = baseUrl
-
-
+        api.accessToken = null
+        api.userId = null
 
         try {
             val serverPublicSystemInfo by api.systemApi.getPublicSystemInfo()
-
 
             val result by api.userApi.authenticateUserByName(
                 username = username,
@@ -75,8 +73,8 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
                 library = HashMap()
             )
             Log.i(TAG, "login: success uid=${result.user!!.id}")
-            db.credentialDao().insert(cred)
-            updateApiCredential(cred)
+            ObjectBox.credentialBox.put(cred)
+            withCredential(cred)
             return@with cred
         } catch (err: InvalidStatusException) {
             if (err.status == 401) {
@@ -90,27 +88,22 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
     }
 
     suspend fun verifySavedCredential(credential: Credential) {
-        updateApiCredential(credential)
         try {
-            val currentUser = api.userApi.getCurrentUser().content
+            val currentUser = withCredential(credential).userApi.getCurrentUser().content
             Log.i(TAG, "verifySavedCredential: success, user=${currentUser}")
         } catch (e: IllegalStateException) {
             throw AuthorizationException("auth failed with saved credential ${e.message}")
         }
     }
 
-    private fun updateApiCredential(credential: Credential) {
-        api.accessToken = credential.token
-        api.baseUrl = credential.server
-        api.userId = UUID.fromString(credential.uid)
-    }
 
-    suspend fun getUserViews(): List<MediaLibraryListItem> {
-        val l = api.userViewsApi.getUserViews().content.items?.mapTo(ArrayList()) {
-            MediaLibraryListItem(false, it.name ?: "", it.id.toString())
-        } ?: ArrayList()
+    suspend fun getUserViews(credential: Credential): List<MediaLibraryListItem> {
+        val l =
+            withCredential(credential).userViewsApi.getUserViews().content.items?.mapTo(ArrayList()) {
+                MediaLibraryListItem(false, it.name ?: "", it.id.toString())
+            } ?: ArrayList()
 
-        val (_, _, _, _, _, libraries) = db.credentialDao().getByUid(api.userId.toString())
+        val libraries = ObjectBox.getCredentialByUid(credential.uid).library
         return l.map {
             it.checked = libraries.contains(it.id)
             it
@@ -118,12 +111,12 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
     }
 
 
-    suspend fun apiQueryAudioItems(
-        parentId: String, startIndex: Int = 0, limit: Int = 100
+    private suspend fun apiQueryAudioItems(
+        parentId: String, startIndex: Int = 0, limit: Int = 100, credential: Credential
     ): BaseItemDtoQueryResult? {
         return try {
             withContext(Dispatchers.IO) {
-                api.itemsApi.getItemsByUserId(
+                withCredential(credential).itemsApi.getItemsByUserId(
                     sortBy = listOf("SortName"),
                     sortOrder = setOf(SortOrder.ASCENDING),
                     includeItemTypes = setOf(BaseItemKind.AUDIO),
@@ -151,11 +144,12 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         libraries: List<MediaLibraryListItem>,
         batchSize: Int = 1000,
         onProgress: (Int) -> Unit,
-        onMessage: (String) -> Unit
+        onMessage: (String) -> Unit,
+        credential: Credential
     ) {
 
         val queryTotal = libraries.associateWith {
-            apiQueryAudioItems(it.id, 0, 0)?.totalRecordCount ?: 0
+            apiQueryAudioItems(it.id, 0, 0, credential)?.totalRecordCount ?: 0
         }
 
         val totalSum = queryTotal.values.sum()
@@ -165,21 +159,22 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         onMessage("Total $totalSum need to fetch...")
         queryTotal.forEach { (lib, total) ->
             onMessage("Cleaning database for ${lib.name}.")
-            db.virtualFileDao().deleteAllByLibraryId(lib.id)
-            onMessage("Database cleared for ${lib.name}")
+            val removed = ObjectBox.removeAllVirtualFileByLibraryId(lib.id)
+            onMessage("Database cleared for ${lib.name}, $removed rows removed.")
             onMessage("Querying api for media library ${lib.name} ...")
-            fetchItemsInBatches(batchSize = batchSize,
+            fetchItemsInBatches(
+                batchSize = batchSize,
                 totalItems = total,
                 libId = lib.id,
+                credential = credential,
                 onProgress = {
                     proceed += it
                     onProgress(100 * proceed / totalSum)
                     onMessage("${lib.name}: got $it from query, total=$proceed")
                 },
                 onFetch = {
-                    val uid = api.userId.toString()
-                    val vfs = it.map { dto -> toVirtualFile(dto, lib.id, uid) }
-                    db.virtualFileDao().insertAll(vfs)
+                    val vfs = it.map { dto -> toVirtualFile(dto, lib.id, credential) }
+                    ObjectBox.virtualFileBox.put(vfs)
                 })
         }
     }
@@ -189,13 +184,14 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         totalItems: Int,
         libId: String,
         onProgress: (Int) -> Unit,
-        onFetch: (List<BaseItemDto>) -> Unit
+        onFetch: (List<BaseItemDto>) -> Unit,
+        credential: Credential
     ) {
         val numberOfBatches = (totalItems + batchSize - 1) / batchSize
 
         for (batch in 0 until numberOfBatches) {
             val startIndex = batch * batchSize
-            val items = apiQueryAudioItems(libId, startIndex, batchSize)?.items
+            val items = apiQueryAudioItems(libId, startIndex, batchSize, credential)?.items
 
             if (items != null) {
                 onFetch(items)
@@ -206,32 +202,33 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         }
     }
 
-
-    private fun toVirtualFile(it: BaseItemDto, lid: String, uid: String): VirtualFile {
+    private fun toVirtualFile(it: BaseItemDto, libId: String, credential: Credential): VirtualFile {
         val ms = it.mediaSources?.first()!!
         var flag = 0
-        if (it.albumPrimaryImageTag != null)
+        if (it.albumId != null)
             flag = flag or DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL
-        return VirtualFile(
-            id = it.id.toString(),
+        val vf = VirtualFile(
+            documentId = it.id.toString(),
             mimeType = getMimeTypeFromExtension(ms.container!!)!!,
             displayName = "${ms.name}.${ms.container}",
             lastModified = 1000 * it.dateCreated?.toEpochSecond(ZoneOffset.UTC)!!,
             flags = flag,
             size = ms.size ?: 0,
-            lid = lid,
-            uid = uid,
-            mediaInfo = MediaInfo(
-                duration = (it.runTimeTicks ?: 0) / 10000,
-                year = it.productionYear ?: -1,
-                title = it.name!!,
-                album = it.album ?: "",
-                track = it.indexNumber ?: 0,
-                artist = it.artists?.joinToString(", ") ?: "",
-                bitrate = ms.bitrate ?: 0,
-                thumbnail = it.albumPrimaryImageTag
-            )
+            libId = libId,
+            uid = credential.uid,
+            duration = (it.runTimeTicks ?: 0) / 10000,
+            year = it.productionYear ?: -1,
+            title = it.name!!,
+            album = it.album ?: "",
+            track = it.indexNumber ?: 0,
+            artist = it.artists?.joinToString(", ") ?: "",
+            bitrate = it.mediaSources?.first()?.bitrate ?: 0,
+            thumbnail = it.albumId != null,
+            credentialId = credential.id
         )
+
+        vf.credential.target = credential
+        return vf
     }
 
     private val mimeTypeCache = HashMap<String, String>()
@@ -244,22 +241,26 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
     }
 
 
-    fun resolveStreamingURL(vf: VirtualFile): String {
-        loadCredentialForFile(vf)
-        return api.libraryApi.getFileUrl(UUID.fromString(vf.id), includeCredentials = true)
-//        return api.audioApi.getAudioStreamUrl(UUID.fromString(vf.id), static = true)
-    }
+    fun resolveFileURL(vf: VirtualFile): String =
+        withCredential(vf).libraryApi.getFileUrl(
+            UUID.fromString(vf.documentId),
+            includeCredentials = true
+        )
 
-    fun resolveThumbnailURL(vf: VirtualFile): String {
-        loadCredentialForFile(vf)
-        return api.imageApi.getItemImageUrl(
-            UUID.fromString(vf.id),
+    fun resolveThumbnailURL(vf: VirtualFile): String? {
+        if (!vf.thumbnail) return null
+        return withCredential(vf).imageApi.getItemImageUrl(
+            UUID.fromString(vf.documentId),
             ImageType.PRIMARY
         )
     }
 
-    private fun loadCredentialForFile(vf: VirtualFile) {
-        val credential = db.credentialDao().getByUid(vf.uid)
-        updateApiCredential(credential)
+    private fun withCredential(vf: VirtualFile) = withCredential(vf.credential.target)
+
+    private fun withCredential(credential: Credential): ApiClient {
+        api.accessToken = credential.token
+        api.baseUrl = credential.server
+        api.userId = UUID.fromString(credential.uid)
+        return api
     }
 }
