@@ -33,13 +33,14 @@ class BufferedURLRandomAccess(
     private val url: URL,
     bufferSizeKB: Int = 0,
     private val bufferFile: File,
-    private val maxRetry: Int = 3
+    private val maxRetry: Int = 3,
+    private val lazyReadAheadLimit: Long = -1L
 ) : URLRandomAccess(url), CoroutineScope, Closeable {
 
     override val coroutineContext = Dispatchers.IO + SupervisorJob()
-    private val bufferSize = bufferSizeKB * 1024
     private val docId = vf.documentId
 
+    private val minimalBufferLength = bufferSizeKB * 1024L
     private val contentLengthLong = getContentLengthLong()
     private val bufferedRanges: SortedLongRangeList
     private val cacheInfo: CacheInfo = ObjectBox.getOrCreateFileCacheInfo(vf, bufferFile)
@@ -50,7 +51,7 @@ class BufferedURLRandomAccess(
     private val condition: Condition = lock.newCondition()
 
     @Volatile
-    private var currentPosition: Long = -1L
+    private var currentPosition: Long = 0L
         @Synchronized get
         @Synchronized set
 
@@ -80,7 +81,7 @@ class BufferedURLRandomAccess(
             }
             return
         }
-        if (from <= currentPosition || lastLunchPosition >= from) {
+        if (from in 1..currentPosition || lastLunchPosition >= from) {
             logcat(
                 TAG, VERBOSE
             ) { "requestData(): noop cause range overlap from=$from, current=$currentPosition, lastLaunch=$lastLunchPosition." }
@@ -168,16 +169,21 @@ class BufferedURLRandomAccess(
                 RandomAccessFile(bufferFile, "rws").use { outputStream ->
 
                     var bytesRead: Int
-                    val buffer = ByteArray(bufferSize) //128k
+                    val buffer = ByteArray(8 * 1024)
+                    var accumulatedRead = 0L
 
                     while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                         outputStream.seek(from + totalBytesRead)
                         outputStream.write(buffer, 0, bytesRead)
 
-                        currentPosition += bytesRead
                         totalBytesRead += bytesRead
+                        currentPosition += bytesRead
+                        accumulatedRead += bytesRead
 
-                        updateBufferedRange()
+                        if (accumulatedRead >= minimalBufferLength) {
+                            updateBufferedRange()
+                            accumulatedRead = 0
+                        }
                     }
                 }
             }
@@ -229,7 +235,8 @@ class BufferedURLRandomAccess(
         return connection.contentLengthLong
     }
 
-    private fun isCompleted() = currentPosition == length - 1
+    private fun isCompleted() =
+        currentPosition >= length - 1
 
     inner class CancelCauseNewRangeException : CancellationException()
     inner class CancelCauseCloseException : CancellationException()
