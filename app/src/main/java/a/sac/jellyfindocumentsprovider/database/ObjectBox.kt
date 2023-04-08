@@ -26,7 +26,7 @@ object ObjectBox {
     lateinit var virtualFileBox: Box<VirtualFile>
         private set
 
-    private lateinit var cacheInfoBox: Box<CacheInfo>
+    lateinit var cacheInfoBox: Box<CacheInfo>
 
     fun init(context: Context) {
         store = MyObjectBox.builder().androidContext(context.applicationContext).build()

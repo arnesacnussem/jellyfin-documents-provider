@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,6 +42,17 @@ class HomeFragment : Fragment() {
 
         binding.libraryPreference.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_LibrarySelectionFragment)
+        }
+        binding.clearCache.setOnClickListener {
+            lifecycleScope.launch(Dispatchers.IO) {
+                ObjectBox.cacheInfoBox.removeAll()
+                Snackbar.make(
+                    view,
+                    "DB cache info cleared.",
+                    Snackbar.LENGTH_LONG
+                )
+                    .setAnchorView(R.id.fab).show()
+            }
         }
 
         checkIfNeedWizard()
