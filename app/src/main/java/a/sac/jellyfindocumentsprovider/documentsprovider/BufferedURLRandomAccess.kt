@@ -60,7 +60,7 @@ class BufferedURLRandomAccess(
         bufferedRanges = cacheInfo.bufferedRanges
         if (cacheInfo.isCompleted) {
             logcat(INFO) { "init(${docId.short}): File already downloaded." }
-            currentPosition = length - 1
+            currentPosition = length
         } else {
             requestData(0)
         }
@@ -69,7 +69,7 @@ class BufferedURLRandomAccess(
     @Synchronized
     private fun requestData(from: Long) {
         logcat(VERBOSE) { "requestData(): from=$from, previousJob=$currentJob" }
-        if (currentPosition == length - 1) {
+        if (currentPosition == length) {
             logcat(TAG, VERBOSE) {
                 "requestData(): noop cause already downloaded"
             }
@@ -83,8 +83,8 @@ class BufferedURLRandomAccess(
             return
         }
 
-        if (bufferedRanges.noGapsIn(0..from)) {
-            logcat(TAG, VERBOSE) { "requestData(): noop cause no gap in between [0..$from]." }
+        if (bufferedRanges.noGapsIn(from..length)) {
+            logcat(TAG, VERBOSE) { "requestData(): noop cause no gap in between [$from..$length]." }
             return
         }
 
@@ -132,7 +132,7 @@ class BufferedURLRandomAccess(
 
     private fun saveCacheInfo() {
         val copy = cacheInfo.copy(
-            isCompleted = currentPosition == length - 1, bufferedRanges = bufferedRanges
+            isCompleted = currentPosition == length, bufferedRanges = bufferedRanges
         )
         ObjectBox.setFileCacheInfo(copy)
     }
@@ -188,19 +188,21 @@ class BufferedURLRandomAccess(
         }
     }
 
-    override fun read(offset: Long, length: Int, data: ByteArray): Int = lock.withLock {
-        requestData(offset)
-        while (currentPosition < length) {
-            condition.await()
+    override fun read(offset: Long, size: Int, data: ByteArray): Int = lock.withLock {
+        if (currentPosition != length) {
+            requestData(offset)
+            while (currentPosition < length) {
+                condition.await()
 
-            if (bufferedRanges.noGapsIn(offset..length)) {
-                break
+                if (bufferedRanges.noGapsIn(offset..size)) {
+                    break
+                }
             }
         }
 
         return RandomAccessFile(bufferFile, "r").use { file ->
             file.seek(offset)
-            val readSize = file.read(data, 0, length)
+            val readSize = file.read(data, 0, size)
             logcat(VERBOSE) { "read(${docId.short}): read ${readSize.readable}" }
             if (readSize < 0) 0 else readSize
         }
