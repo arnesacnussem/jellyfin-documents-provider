@@ -20,6 +20,7 @@ import java.io.File
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -60,18 +61,22 @@ class BufferedURLRandomAccess(
         bufferedRanges = cacheInfo.bufferedRanges
         if (cacheInfo.isCompleted) {
             logcat(INFO) { "init(${docId.short}): File already downloaded." }
-            currentPosition = length
+            currentPosition = length - 1
         } else {
-            requestData(0)
+            if (bufferedRanges.isNotEmpty()) {
+                requestData(bufferedRanges.first().first)
+            } else {
+                requestData(0)
+            }
         }
     }
 
     @Synchronized
     private fun requestData(from: Long) {
         logcat(VERBOSE) { "requestData(): from=$from, previousJob=$currentJob" }
-        if (currentPosition == length) {
+        if (isCompleted()) {
             logcat(TAG, VERBOSE) {
-                "requestData(): noop cause already downloaded"
+                "requestData(): noop cause already completed"
             }
             return
         }
@@ -132,7 +137,7 @@ class BufferedURLRandomAccess(
 
     private fun saveCacheInfo() {
         val copy = cacheInfo.copy(
-            isCompleted = currentPosition == length, bufferedRanges = bufferedRanges
+            isCompleted = isCompleted(), bufferedRanges = bufferedRanges
         )
         ObjectBox.setFileCacheInfo(copy)
     }
@@ -189,11 +194,10 @@ class BufferedURLRandomAccess(
     }
 
     override fun read(offset: Long, size: Int, data: ByteArray): Int = lock.withLock {
-        if (currentPosition != length) {
+        if (!isCompleted()) {
             requestData(offset)
-            while (currentPosition < length) {
-                condition.await()
-
+            while (!isCompleted()) {
+                condition.await(500L, TimeUnit.MILLISECONDS)
                 if (bufferedRanges.noGapsIn(offset..size)) {
                     break
                 }
@@ -224,6 +228,8 @@ class BufferedURLRandomAccess(
         val connection = url.openConnection()
         return connection.contentLengthLong
     }
+
+    private fun isCompleted() = currentPosition == length - 1
 
     inner class CancelCauseNewRangeException : CancellationException()
     inner class CancelCauseCloseException : CancellationException()
