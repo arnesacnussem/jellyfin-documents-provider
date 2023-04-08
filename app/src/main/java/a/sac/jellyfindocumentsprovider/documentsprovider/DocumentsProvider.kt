@@ -23,9 +23,7 @@ import android.provider.DocumentsContract.Root
 import android.provider.MediaStore.Audio.AudioColumns
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import logcat.logcat
 import java.io.FileNotFoundException
@@ -39,12 +37,6 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     private val fileHandler: Handler = HandlerThread(TAG + "file")
         .apply { start() }
         .let { Handler(it.looper) }
-
-    private fun <T> runOnHandler(handler: Handler, function: suspend () -> T): T {
-        return runBlocking(handler.asCoroutineDispatcher()) {
-            function()
-        }
-    }
 
     override fun onCreate(): Boolean {
         jellyfinProvider = JellyfinProvider(requireContext())
@@ -71,8 +63,8 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
             val docId = DocType.R.docId(it.uid)
             root.add(Root.COLUMN_ROOT_ID, docId)
             root.add(Root.COLUMN_DOCUMENT_ID, docId)
-            root.add(Root.COLUMN_SUMMARY, "${it.username}")
-            root.add(Root.COLUMN_TITLE, "${it.serverName}")
+            root.add(Root.COLUMN_SUMMARY, it.username)
+            root.add(Root.COLUMN_TITLE, it.serverName)
 
             // this provider only support "IS_CHILD" query.
             root.add(Root.COLUMN_FLAGS, Root.FLAG_SUPPORTS_IS_CHILD)
@@ -210,19 +202,16 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
         documentId: String, mode: String?, signal: CancellationSignal?
     ): ParcelFileDescriptor {
         logcat { "openDocument(): documentId = $documentId, mode = $mode" }
-        return runOnHandler(fileHandler) {
-            ObjectBox.getVirtualFileByDocId(documentId).let { vf ->
-                jellyfinProvider.resolveFileURL(vf).let { url ->
-                    RandomAccessBucket.getProxy(url, vf)
-
+        return ObjectBox.getVirtualFileByDocId(documentId).let { vf ->
+            jellyfinProvider.resolveFileURL(vf).let { url ->
+                RandomAccessBucket.getProxy(url, vf).let {
+                    storageManager.openProxyFileDescriptor(
+                        ParcelFileDescriptor.parseMode(mode),
+                        it,
+                        fileHandler
+                    )
                 }
             }
-        }.let { proxy ->
-            storageManager.openProxyFileDescriptor(
-                ParcelFileDescriptor.MODE_READ_ONLY,
-                proxy,
-                fileHandler
-            )
         }
     }
 

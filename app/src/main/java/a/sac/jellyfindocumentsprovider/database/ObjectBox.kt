@@ -38,12 +38,16 @@ object ObjectBox {
         logcat { "ObjectBox admin started: $started" }
     }
 
-    fun getOrCreateFileCacheInfo(vf: VirtualFile, file: File): CacheInfo =
-        cacheInfoBox.query {
+    fun getOrCreateFileCacheInfo(vf: VirtualFile, file: File): CacheInfo {
+        val cacheInfo = cacheInfoBox.query {
             equal(CacheInfo_.virtualFileId, vf.id)
         }.use {
             it.findFirst() ?: createCacheInfoForDocId(vf, file)
         }
+        if (cacheInfo.id == 0L)
+            cacheInfoBox.put(cacheInfo)
+        return cacheInfo
+    }
 
     private fun createCacheInfoForDocId(vf: VirtualFile, file: File): CacheInfo {
         val c = CacheInfo(

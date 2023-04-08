@@ -1,7 +1,7 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
 import a.sac.jellyfindocumentsprovider.SortedLongRangeList
-import a.sac.jellyfindocumentsprovider.database.ListLongRangeConvert
+import a.sac.jellyfindocumentsprovider.database.SortedLongRangeListConvert
 import io.objectbox.annotation.Convert
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id
@@ -15,7 +15,7 @@ data class CacheInfo(
     @Index val vfDocId: String,
     val localPath: String,
     val isCompleted: Boolean,
-    @Convert(converter = ListLongRangeConvert::class, dbType = String::class)
+    @Convert(converter = SortedLongRangeListConvert::class, dbType = String::class)
     val bufferedRanges: SortedLongRangeList
 ) {
     lateinit var virtualFile: ToOne<VirtualFile>
