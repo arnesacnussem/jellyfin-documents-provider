@@ -14,9 +14,11 @@ data class CacheInfo(
     @Index val virtualFileId: Long,
     @Index val vfDocId: String,
     val localPath: String,
-    val isCompleted: Boolean,
+    val length: Long,
     @Convert(converter = SortedLongRangeListConvert::class, dbType = String::class)
     val bufferedRanges: SortedLongRangeList
 ) {
     lateinit var virtualFile: ToOne<VirtualFile>
+    val isComplete
+        get() = bufferedRanges.noGapsIn(0 until length)
 }

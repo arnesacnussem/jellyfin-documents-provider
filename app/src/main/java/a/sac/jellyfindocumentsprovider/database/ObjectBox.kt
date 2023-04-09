@@ -54,7 +54,7 @@ object ObjectBox {
             id = 0,
             virtualFileId = vf.id,
             vfDocId = vf.documentId,
-            isCompleted = false,
+            length = 0,
             bufferedRanges = SortedLongRangeList(),
             localPath = file.absolutePath
         )

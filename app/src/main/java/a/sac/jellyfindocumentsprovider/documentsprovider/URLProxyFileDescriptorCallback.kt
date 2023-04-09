@@ -16,7 +16,7 @@ class URLProxyFileDescriptorCallback(
         logcat(LogPriority.VERBOSE) { "onRead() called with: offset = $offset, size = $size" }
         val read = ra.read(offset, size, data)
         if (read != size)
-            logcat(LogPriority.WARN) { "onRead: read!=size ($read!=$size) [EOF=${offset + size == ra.length}, offset = ${offset}, size = ${size}, total = ${ra.length}]" }
+            logcat(LogPriority.WARN) { "onRead: read!=size ($read!=$size) [EOF=${offset + size >= ra.length}, offset = ${offset}, size = ${size}, total = ${ra.length}]" }
         return if (read <= 0) 0
         else read
 

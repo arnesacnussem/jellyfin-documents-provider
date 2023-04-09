@@ -1,10 +1,8 @@
 package a.sac.jellyfindocumentsprovider.documentsprovider
 
 import a.sac.jellyfindocumentsprovider.R
-import a.sac.jellyfindocumentsprovider.TAG
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
-import a.sac.jellyfindocumentsprovider.database.entities.brief
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
 import a.sac.jellyfindocumentsprovider.short
 import android.content.Context
@@ -34,9 +32,6 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     private lateinit var jellyfinProvider: JellyfinProvider
     private val providerContext: Context by lazy { context!! }
     private val storageManager: StorageManager by lazy { providerContext.getSystemService(Context.STORAGE_SERVICE) as StorageManager }
-    private val fileHandler: Handler = HandlerThread(TAG + "file")
-        .apply { start() }
-        .let { Handler(it.looper) }
 
     override fun onCreate(): Boolean {
         jellyfinProvider = JellyfinProvider(requireContext())
@@ -171,7 +166,6 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
         signal: CancellationSignal?
     ): AssetFileDescriptor? {
         logcat { "openDocumentThumbnail(${documentId.short}): sizeHint = $sizeHint" }
-        // Check if documentId is not null, otherwise return null
         return ObjectBox.getVirtualFileByDocId(documentId).let { virtualFile ->
             jellyfinProvider.resolveThumbnailURL(virtualFile, sizeHint)?.let { url ->
                 logcat(LogPriority.VERBOSE) { "openDocumentThumbnail(${documentId.short}): resolved url=$url" }
@@ -208,7 +202,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
                     storageManager.openProxyFileDescriptor(
                         ParcelFileDescriptor.parseMode(mode),
                         it,
-                        fileHandler
+                        Handler(HandlerThread("fdProxyHandler-${documentId.short}").apply { start() }.looper)
                     )
                 }
             }

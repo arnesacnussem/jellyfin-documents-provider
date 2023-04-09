@@ -43,6 +43,7 @@ class BufferedURLRandomAccess(
     private val minimalBufferLength = bufferSizeKB * 1024L
     private val contentLengthLong = getContentLengthLong()
     private val bufferedRanges: SortedLongRangeList
+        get() = cacheInfo.bufferedRanges
     private val cacheInfo: CacheInfo = ObjectBox.getOrCreateFileCacheInfo(vf, bufferFile)
 
 
@@ -59,8 +60,7 @@ class BufferedURLRandomAccess(
     private var lastLunchPosition = -1L
 
     init {
-        bufferedRanges = cacheInfo.bufferedRanges
-        if (cacheInfo.isCompleted) {
+        if (cacheInfo.isComplete) {
             logcat(INFO) { "init(${docId.short}): File already downloaded." }
             currentPosition = length - 1
         } else {
@@ -137,10 +137,7 @@ class BufferedURLRandomAccess(
 
 
     private fun saveCacheInfo() {
-        val copy = cacheInfo.copy(
-            isCompleted = isCompleted(), bufferedRanges = bufferedRanges
-        )
-        ObjectBox.setFileCacheInfo(copy)
+        ObjectBox.setFileCacheInfo(cacheInfo.copy(length = length))
     }
 
     /**
@@ -204,7 +201,7 @@ class BufferedURLRandomAccess(
             requestData(offset)
             while (!isCompleted()) {
                 condition.await(500L, TimeUnit.MILLISECONDS)
-                if (bufferedRanges.noGapsIn(offset..size)) {
+                if (bufferedRanges.noGapsIn(offset..offset + size)) {
                     break
                 }
             }

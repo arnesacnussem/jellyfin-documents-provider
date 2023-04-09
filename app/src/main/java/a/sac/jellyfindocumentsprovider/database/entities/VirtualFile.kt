@@ -40,7 +40,6 @@ data class VirtualFile(
     val albumCoverTag: String?
 ) {
     lateinit var credential: ToOne<Credential>
+    val brief
+        get() = "VirtualFile(docId=${documentId.short}, name=$displayName, size=${size.readable}, flag=$flags)"
 }
-
-val VirtualFile.brief
-    get() = "VirtualFile(docId=${documentId.short}, name=$displayName, size=${size.readable}, flag=$flags)"
