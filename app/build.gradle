@@ -7,6 +7,10 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.serialization' version '1.8.10'
 }
 
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+def keyStoreFile = properties.getProperty("KEYSTORE_LOCATION") ?: null
+
 android {
     namespace 'a.sac.jellyfindocumentsprovider'
     compileSdk 33
@@ -23,12 +27,37 @@ android {
             useSupportLibrary true
         }
     }
+    signingConfigs {
+        if (keyStoreFile != null) {
+            debug {
+                keyAlias 'debug'
+                storeFile file(keyStoreFile)
+                storePassword properties.getProperty("KEYSTORE_PASSWORD")
+                keyPassword properties.getProperty("DEBUG_KEY_PASSWORD")
+            }
+            release {
+                keyAlias 'release'
+                storeFile file(keyStoreFile)
+                storePassword properties.getProperty("KEYSTORE_PASSWORD")
+                keyPassword properties.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
+
+    }
 
     buildTypes {
+        debug {
+            if (keyStoreFile != null) {
+                signingConfig signingConfigs.debug
+            }
+        }
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keyStoreFile != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 

@@ -14,22 +14,31 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        
+
       - name: Setup Java
         uses: actions/setup-java@v2
         with:
           java-version: '11'
           distribution: microsoft
+
+      - name: Write Keystore and Secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          SECRET_PROPERTIES: ${{ secrets.SECRET_PROPERTIES }}
+        run: |
+          echo $KEYSTORE_BASE64 | base64 --decode > ks.jks
+          echo $SECRET_PROPERTIES >> local.properties
+
       - name: Build with Gradle
         run: ./gradlew assemble assembleDebug
-        
+
       - name: Create pre-release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/apk/release/app-release.apk
           tag_name: nightly
           release_name: Nightly Build
           prerelease: true
