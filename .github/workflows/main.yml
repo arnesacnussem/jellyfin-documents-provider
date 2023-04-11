@@ -26,8 +26,8 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           SECRET_PROPERTIES: ${{ secrets.SECRET_PROPERTIES }}
         run: |
-          echo $KEYSTORE_BASE64 | base64 --decode > ks.jks
-          echo $SECRET_PROPERTIES >> local.properties
+          echo "$KEYSTORE_BASE64" | base64 --decode > ks.jks
+          echo "$SECRET_PROPERTIES" >> local.properties
 
       - name: Build with Gradle
         run: ./gradlew assemble assembleDebug

@@ -13,7 +13,7 @@ player [Poweramp](https://powerampapp.com).
 - [x] Basic Audio Info
 - [x] Playback
 - [x] Support seek
-- [ ] Buffering whole file while playing rather streaming realtime
+- [x] Buffering whole file while playing rather streaming realtime
 - [ ] Thumbnail and Album art
 - [ ] A better UI
 - [ ] Multi account
