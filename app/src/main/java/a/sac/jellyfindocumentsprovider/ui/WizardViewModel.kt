@@ -3,9 +3,8 @@ package a.sac.jellyfindocumentsprovider.ui
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
 import a.sac.jellyfindocumentsprovider.utils.FixedCapacityList
-import a.sac.jellyfindocumentsprovider.utils.TAG
+import a.sac.jellyfindocumentsprovider.utils.logcat
 import android.app.Application
-import android.util.Log
 import android.widget.Toast
 import androidx.databinding.ObservableArrayList
 import androidx.databinding.ObservableField
@@ -14,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,7 +39,9 @@ class WizardViewModel @Inject constructor(
             withContext(Dispatchers.Main) {
                 Toast.makeText(application, e.message, Toast.LENGTH_SHORT).show()
             }
-            Log.e(TAG, "testConnection: failed", e)
+            logcat(LogPriority.WARN) {
+                "testConnection: failed ${e.stackTraceToString()}"
+            }
             false
         }
         btnLoading.set(false)
@@ -49,7 +51,6 @@ class WizardViewModel @Inject constructor(
     fun onServerInfoChanged() {
         serverInfoValid.set(false)
     }
-
 
     data class ServerInfo(
         var baseUrl: String = "",

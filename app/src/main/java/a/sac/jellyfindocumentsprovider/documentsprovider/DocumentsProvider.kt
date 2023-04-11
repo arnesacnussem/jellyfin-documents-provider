@@ -2,7 +2,6 @@ package a.sac.jellyfindocumentsprovider.documentsprovider
 
 import a.sac.jellyfindocumentsprovider.R
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
-import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
 import a.sac.jellyfindocumentsprovider.utils.short
 import android.content.Context
@@ -18,7 +17,6 @@ import android.os.StrictMode
 import android.os.storage.StorageManager
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
-import android.provider.MediaStore.Audio.AudioColumns
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -79,12 +77,12 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
 
     override fun queryDocument(documentId: String?, projection: Array<out String>?): Cursor {
         logcat { "queryDocument: id=$documentId, projection=$projection" }
-        val result = MatrixCursor(resolveDocumentProjection(projection))
-        if (documentId == null) return result
+        val cursor = MatrixCursor(resolveDocumentProjection(projection))
+        if (documentId == null) return cursor
         when (getDocTypeByDocId(documentId)) {
             // Root Folder contains included libraries
             DocType.R -> {
-                addVirtualDirRow(result, documentId, "/")
+                addVirtualDirRow(cursor, documentId, "/")
             }
 
             DocType.L -> {
@@ -92,18 +90,19 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
                 val libName = ObjectBox.credentialBox.all.find {
                     it.library.containsKey(id)
                 }?.library?.get(id)
-                addVirtualDirRow(result, documentId, libName ?: "THIS NAME SHOULD NOT DISPLAY!")
+                addVirtualDirRow(cursor, documentId, libName ?: "THIS NAME SHOULD NOT DISPLAY!")
             }
 
             DocType.File -> {
-                val vFile = ObjectBox.getVirtualFileByDocId(documentId)
-                addVirtualFileRow(result, vFile)
+                ObjectBox
+                    .getVirtualFileByDocId(documentId)
+                    .appendVirtualFileRow(cursor)
             }
 
             else -> TODO("Not yet implemented")
         }
 
-        return result
+        return cursor
     }
 
     override fun queryChildDocuments(
@@ -123,7 +122,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
 
             DocType.L -> {
                 ObjectBox.getAllVirtualFileByLibraryId(xid).forEach {
-                    addVirtualFileRow(cursor, it)
+                    it.appendVirtualFileRow(cursor)
                 }
             }
 
@@ -188,7 +187,6 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
                 AssetFileDescriptor(read, 0, length)
             }
         }
-
     }
 
     @Throws(FileNotFoundException::class)
@@ -219,29 +217,6 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
         row.add(Document.COLUMN_MIME_TYPE, Document.MIME_TYPE_DIR)
         row.add(Document.COLUMN_LAST_MODIFIED, 0)
         row.add(Document.COLUMN_FLAGS, 0)
-    }
-
-    private fun addVirtualFileRow(
-        cursor: MatrixCursor, virtualFile: VirtualFile
-    ) {
-        val row = cursor.newRow()
-        row.add(Document.COLUMN_DOCUMENT_ID, virtualFile.documentId)
-        row.add(Document.COLUMN_DISPLAY_NAME, virtualFile.displayName)
-        row.add(Document.COLUMN_SIZE, virtualFile.size)
-        row.add(Document.COLUMN_MIME_TYPE, virtualFile.mimeType)
-        row.add(Document.COLUMN_LAST_MODIFIED, virtualFile.lastModified)
-        row.add(Document.COLUMN_FLAGS, virtualFile.flags)
-        appendAudioInfo(row, virtualFile)
-    }
-
-    private fun appendAudioInfo(row: MatrixCursor.RowBuilder, virtualFile: VirtualFile) {
-        row.add(AudioColumns.DURATION, virtualFile.duration)
-        if (virtualFile.year != -1) row.add(AudioColumns.YEAR, virtualFile.year)
-        row.add(AudioColumns.TITLE, virtualFile.title)
-        row.add(AudioColumns.ALBUM, virtualFile.album)
-        row.add(AudioColumns.TRACK, virtualFile.track)
-        row.add(AudioColumns.ARTIST, virtualFile.artist)
-        row.add(AudioColumns.BITRATE, virtualFile.bitrate)
     }
 
     private fun resolveDocumentProjection(projection: Array<out String>?): Array<out String> {

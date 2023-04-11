@@ -23,9 +23,9 @@
         tools:layout="@layout/fragment_library_selection">
         <action
             android:id="@+id/action_LibrarySelectionFragment_to_wizardUpdateDb"
-            app:destination="@id/wizardUpdateDb"
+            app:destination="@id/UpdateDBFragment"
             app:launchSingleTop="true"
-            app:popUpTo="@id/wizardUpdateDb"
+            app:popUpTo="@id/UpdateDBFragment"
             app:popUpToInclusive="true" />
     </fragment>
     <fragment
@@ -47,13 +47,16 @@
             app:popUpToInclusive="true" />
         <action
             android:id="@+id/action_HomeFragment_to_wizardUpdateDb"
-            app:destination="@id/wizardUpdateDb"
+            app:destination="@id/UpdateDBFragment"
             app:launchSingleTop="true"
-            app:popUpTo="@id/wizardUpdateDb"
+            app:popUpTo="@id/UpdateDBFragment"
             app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_HomeFragment_to_preferenceFragment"
+            app:destination="@id/PreferenceFragment" />
     </fragment>
     <fragment
-        android:id="@+id/wizardUpdateDb"
+        android:id="@+id/UpdateDBFragment"
         android:name="a.sac.jellyfindocumentsprovider.ui.fragments.WizardUpdateDb"
         android:label="Update Database"
         tools:layout="@layout/fragment_wizard_update_db">
@@ -64,4 +67,8 @@
             app:popUpTo="@id/HomeFragment"
             app:popUpToInclusive="true" />
     </fragment>
+    <fragment
+        android:id="@+id/PreferenceFragment"
+        android:name="a.sac.jellyfindocumentsprovider.ui.fragments.PreferenceFragment"
+        android:label="PreferenceFragment" />
 </navigation>

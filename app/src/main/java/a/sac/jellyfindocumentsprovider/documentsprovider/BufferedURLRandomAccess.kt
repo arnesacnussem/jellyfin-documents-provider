@@ -111,6 +111,7 @@ class BufferedURLRandomAccess(
                     try {
                         requestDataSingleThread(from)
                         saveCacheInfo()
+                        if (isCompleted()) onFinishDownload()
                         return@retryLoop
                     } catch (e: CancellationException) {
                         if (e.cause?.instanceOf(CancelCauseCloseException::class) == true) {
@@ -230,6 +231,10 @@ class BufferedURLRandomAccess(
     fun getContentLengthLong(): Long {
         val connection = url.openConnection()
         return connection.contentLengthLong
+    }
+
+    private fun onFinishDownload() {
+        RandomAccessBucket.onFinishDownload(this.docId)
     }
 
     private fun isCompleted() =

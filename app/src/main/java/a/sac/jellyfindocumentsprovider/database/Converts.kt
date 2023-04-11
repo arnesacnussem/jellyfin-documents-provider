@@ -5,10 +5,11 @@ import io.objectbox.converter.PropertyConverter
 
 class SortedLongRangeListConvert : PropertyConverter<SortedLongRangeList, String> {
     override fun convertToEntityProperty(databaseValue: String?): SortedLongRangeList {
-        return SortedLongRangeList(innerList = databaseValue?.split(';')?.map {
-            val split = it.split(',').map { s -> s.trim().toLong() }
-            split[0]..split[1]
-        }?.toMutableList() ?: mutableListOf())
+        return SortedLongRangeList(innerList = databaseValue?.split(';')?.filter { it.isNotBlank() }
+            ?.map {
+                val split = it.split(',').map { s -> s.trim().toLong() }
+                split[0]..split[1]
+            }?.toMutableList() ?: mutableListOf())
     }
 
     override fun convertToDatabaseValue(entityProperty: SortedLongRangeList?): String {

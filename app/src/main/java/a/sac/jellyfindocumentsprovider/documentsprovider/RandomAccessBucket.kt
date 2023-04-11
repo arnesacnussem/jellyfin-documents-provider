@@ -2,14 +2,29 @@ package a.sac.jellyfindocumentsprovider.documentsprovider
 
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
 import a.sac.jellyfindocumentsprovider.utils.short
+import android.content.Context
+import android.content.Intent
+import com.maxmpz.poweramp.player.PowerampAPI
+import com.maxmpz.poweramp.player.PowerampAPIHelper
 import logcat.LogPriority
 import logcat.logcat
 import java.net.URL
 import java.nio.file.Path
 
 object RandomAccessBucket {
-    fun init(tempPath: Path) {
-        tempFileRoot = tempPath
+    lateinit var onFinishDownload: (id: String) -> Unit
+    fun init(context: Context) {
+        tempFileRoot = context.applicationContext.cacheDir.toPath()
+        onFinishDownload = { id: String ->
+            logcat { "Sending re-scan request to poweramp." }
+            PowerampAPIHelper.sendPAIntent(
+                context,
+                Intent(PowerampAPI.Scanner.ACTION_SCAN_TAGS).putExtra(
+                    PowerampAPI.Scanner.EXTRA_FAST_SCAN,
+                    true
+                )
+            )
+        }
     }
 
     private lateinit var tempFileRoot: Path

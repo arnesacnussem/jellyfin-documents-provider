@@ -2,6 +2,8 @@ package a.sac.jellyfindocumentsprovider.database.entities
 
 import a.sac.jellyfindocumentsprovider.utils.readable
 import a.sac.jellyfindocumentsprovider.utils.short
+import android.database.MatrixCursor
+import android.provider.DocumentsContract
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id
 import io.objectbox.annotation.Index
@@ -14,7 +16,6 @@ data class VirtualFile(
     val mimeType: String,
     val displayName: String,
     val lastModified: Long,
-    val flags: Int,
     val size: Long,
 
     /**
@@ -27,19 +28,36 @@ data class VirtualFile(
      */
     @Index val uid: String,
 
-    /////////////////////// Media Info
-    val duration: Long?,
-    val year: Int?,
-    val title: String?,
-    val album: String?,
-    val track: Int?,
-    val artist: String?,
-    val bitrate: Int?,
+    // Relation to extra info
     val credentialId: Long,
-    val albumId: String,
-    val albumCoverTag: String?
+    val mediaInfoId: Long = 0,
+    val powerampExtraInfoId: Long = 0
 ) {
     lateinit var credential: ToOne<Credential>
+    lateinit var mediaInfo: ToOne<MediaInfo>
+    lateinit var powerampExtraInfo: ToOne<PowerampExtraInfo>
     val brief
-        get() = "VirtualFile(docId=${documentId.short}, name=$displayName, size=${size.readable}, flag=$flags)"
+        get() = "VirtualFile(docId=${documentId.short}, name=$displayName, size=${size.readable}, flag=$flag)"
+
+    val flag
+        get() = if (mediaInfo.target.hasThumbnail)
+            DocumentsContract.Document.FLAG_SUPPORTS_THUMBNAIL
+        else 0
+
+    fun appendVirtualFileRow(
+        cursor: MatrixCursor
+    ) {
+        val row = cursor.newRow()
+        row.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
+        row.add(DocumentsContract.Document.COLUMN_DISPLAY_NAME, displayName)
+        row.add(DocumentsContract.Document.COLUMN_SIZE, size)
+        row.add(DocumentsContract.Document.COLUMN_MIME_TYPE, mimeType)
+        row.add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, lastModified)
+        row.add(DocumentsContract.Document.COLUMN_FLAGS, flag)
+
+        if (this::mediaInfo.isInitialized && mediaInfo.isResolvedAndNotNull)
+            mediaInfo.target.appendTo(row)
+        if (this::powerampExtraInfo.isInitialized && powerampExtraInfo.isResolvedAndNotNull)
+            powerampExtraInfo.target.appendTo(row)
+    }
 }

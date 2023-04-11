@@ -2,13 +2,13 @@ package a.sac.jellyfindocumentsprovider.jellyfin
 
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
+import a.sac.jellyfindocumentsprovider.database.entities.MediaInfo
+import a.sac.jellyfindocumentsprovider.database.entities.PowerampExtraInfo
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
-import a.sac.jellyfindocumentsprovider.ui.WizardViewModel.MediaLibraryListItem
-import a.sac.jellyfindocumentsprovider.ui.WizardViewModel.ServerInfo
+import a.sac.jellyfindocumentsprovider.ui.WizardViewModel
 import a.sac.jellyfindocumentsprovider.utils.logcat
 import android.content.Context
 import android.graphics.Point
-import android.provider.DocumentsContract.Document
 import android.webkit.MimeTypeMap
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +50,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
      * Login with server info, will overwrite current login state
      */
     @Throws(AuthorizationException::class, IllegalArgumentException::class)
-    suspend fun login(info: ServerInfo) = with(info) {
+    suspend fun login(info: WizardViewModel.ServerInfo) = with(info) {
         if (baseUrl.isBlank()) {
             throw IllegalArgumentException("The baseUrl must not leave blank!")
         }
@@ -98,10 +98,10 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
     }
 
 
-    suspend fun getUserViews(credential: Credential): List<MediaLibraryListItem> {
+    suspend fun getUserViews(credential: Credential): List<WizardViewModel.MediaLibraryListItem> {
         val l =
             withCredential(credential).userViewsApi.getUserViews().content.items?.mapTo(ArrayList()) {
-                MediaLibraryListItem(false, it.name ?: "", it.id.toString())
+                WizardViewModel.MediaLibraryListItem(false, it.name ?: "", it.id.toString())
             } ?: ArrayList()
 
         val libraries = ObjectBox.getCredentialByUid(credential.uid).library
@@ -126,7 +126,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
                         ItemFields.DATE_CREATED,
                         ItemFields.SORT_NAME,
                         ItemFields.MEDIA_STREAMS,
-                        ItemFields.MEDIA_SOURCES
+                        ItemFields.MEDIA_SOURCES,
                     ),
                     startIndex = startIndex,
                     imageTypeLimit = 1,
@@ -142,7 +142,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
     }
 
     suspend fun queryApiForLibraries(
-        libraries: List<MediaLibraryListItem>,
+        libraries: List<WizardViewModel.MediaLibraryListItem>,
         batchSize: Int = 1000,
         onProgress: (Int) -> Unit,
         onMessage: (String) -> Unit,
@@ -206,18 +206,19 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
 
     private fun toVirtualFile(it: BaseItemDto, libId: String, credential: Credential): VirtualFile {
         val ms = it.mediaSources?.first()!!
-        var flag = 0
-        if (it.albumId != null)
-            flag = flag or Document.FLAG_SUPPORTS_THUMBNAIL
         val vf = VirtualFile(
             documentId = it.id.toString(),
             mimeType = getMimeTypeFromExtension(ms.container!!)!!,
             displayName = "${ms.name}.${ms.container}",
             lastModified = 1000 * it.dateCreated?.toEpochSecond(ZoneOffset.UTC)!!,
-            flags = flag,
             size = ms.size ?: 0,
             libId = libId,
             uid = credential.uid,
+            credentialId = credential.id,
+        )
+
+        vf.credential.target = credential
+        vf.mediaInfo.target = MediaInfo(
             duration = (it.runTimeTicks ?: 0) / 10000,
             year = it.productionYear ?: -1,
             title = it.name!!,
@@ -227,10 +228,8 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
             bitrate = it.mediaSources?.first()?.bitrate ?: 0,
             albumId = it.albumId.toString(),
             albumCoverTag = it.albumPrimaryImageTag,
-            credentialId = credential.id,
         )
-
-        vf.credential.target = credential
+        vf.powerampExtraInfo.target = PowerampExtraInfo(0, null)
         return vf
     }
 
@@ -251,11 +250,12 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         )
 
     fun resolveThumbnailURL(vf: VirtualFile, sizeHint: Point?): String? {
-        if (vf.albumCoverTag == null) return null
+        val mi = vf.mediaInfo.target
+        if (!mi.hasThumbnail) return null
         return withCredential(vf).imageApi.getItemImageUrl(
-            UUID.fromString(vf.albumId),
+            UUID.fromString(mi.albumId),
             ImageType.PRIMARY,
-            tag = vf.albumCoverTag,
+            tag = mi.albumCoverTag,
             height = sizeHint?.y,
             width = sizeHint?.x,
             format = ImageFormat.WEBP

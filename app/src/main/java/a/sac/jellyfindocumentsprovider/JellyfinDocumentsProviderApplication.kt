@@ -15,7 +15,7 @@ class JellyfinDocumentsProviderApplication : Application() {
         super.onCreate()
         LogcatLogger.install(AndroidLogcatLogger(DEBUG))
         ObjectBox.init(this)
-        RandomAccessBucket.init(this.applicationContext.cacheDir.toPath())
+        RandomAccessBucket.init(this)
         NotificationUtil.init(this)
 
     }
