@@ -1,11 +1,9 @@
 package a.sac.jellyfindocumentsprovider.ui
 
-import a.sac.jellyfindocumentsprovider.FixedCapacityList
-import a.sac.jellyfindocumentsprovider.MediaLibraryListItem
-import a.sac.jellyfindocumentsprovider.ServerInfo
-import a.sac.jellyfindocumentsprovider.TAG
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
+import a.sac.jellyfindocumentsprovider.utils.FixedCapacityList
+import a.sac.jellyfindocumentsprovider.utils.TAG
 import android.app.Application
 import android.util.Log
 import android.widget.Toast
@@ -51,4 +49,17 @@ class WizardViewModel @Inject constructor(
     fun onServerInfoChanged() {
         serverInfoValid.set(false)
     }
+
+
+    data class ServerInfo(
+        var baseUrl: String = "",
+        var username: String = "",
+        var password: String = ""
+    )
+
+    data class MediaLibraryListItem(
+        var checked: Boolean,
+        val name: String,
+        val id: String
+    )
 }

@@ -5,7 +5,7 @@
 
         <variable
             name="item"
-            type="a.sac.jellyfindocumentsprovider.MediaLibraryListItem" />
+            type="a.sac.jellyfindocumentsprovider.ui.WizardViewModel.MediaLibraryListItem" />
     </data>
 
     <LinearLayout

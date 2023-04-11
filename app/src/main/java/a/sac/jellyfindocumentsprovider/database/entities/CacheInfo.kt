@@ -1,7 +1,7 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
-import a.sac.jellyfindocumentsprovider.SortedLongRangeList
 import a.sac.jellyfindocumentsprovider.database.SortedLongRangeListConvert
+import a.sac.jellyfindocumentsprovider.utils.SortedLongRangeList
 import io.objectbox.annotation.Convert
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id

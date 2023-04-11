@@ -1,7 +1,7 @@
 package a.sac.jellyfindocumentsprovider.ui.adapters
 
-import a.sac.jellyfindocumentsprovider.MediaLibraryListItem
 import a.sac.jellyfindocumentsprovider.databinding.MediaLibraryListItemBinding
+import a.sac.jellyfindocumentsprovider.ui.WizardViewModel.MediaLibraryListItem
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.View

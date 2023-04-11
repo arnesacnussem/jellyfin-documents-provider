@@ -1,7 +1,7 @@
 package a.sac.jellyfindocumentsprovider.documentsprovider
 
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
-import a.sac.jellyfindocumentsprovider.short
+import a.sac.jellyfindocumentsprovider.utils.short
 import logcat.LogPriority
 import logcat.logcat
 import java.net.URL

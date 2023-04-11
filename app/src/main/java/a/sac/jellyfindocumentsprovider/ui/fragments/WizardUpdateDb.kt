@@ -3,9 +3,9 @@ package a.sac.jellyfindocumentsprovider.ui.fragments
 import a.sac.jellyfindocumentsprovider.R
 import a.sac.jellyfindocumentsprovider.databinding.FragmentWizardUpdateDbBinding
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
-import a.sac.jellyfindocumentsprovider.logcat
 import a.sac.jellyfindocumentsprovider.ui.WizardViewModel
 import a.sac.jellyfindocumentsprovider.ui.adapters.TextListAdapter
+import a.sac.jellyfindocumentsprovider.utils.logcat
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View

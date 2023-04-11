@@ -1,4 +1,4 @@
-package a.sac.jellyfindocumentsprovider
+package a.sac.jellyfindocumentsprovider.utils
 
 import logcat.LogPriority
 import logcat.logcat as squareLogcat
@@ -38,3 +38,32 @@ val Long.readable: String
  */
 val Int.readable: String
     get() = convertBytesToHumanReadable(this.toLong())
+val Any.TAG: String
+    get() {
+        return if (!javaClass.isAnonymousClass) {
+            javaClass.simpleName
+        } else {
+            val name = javaClass.name
+            if (name.length <= 23) name else name.substring(
+                name.length - 23,
+                name.length
+            )// last 23 chars
+        }
+    }
+
+fun convertBytesToHumanReadable(bytes: Long): String {
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    if (bytes < 1024) {
+        return "$bytes ${units[0]}"
+    }
+
+    var value = bytes.toDouble()
+    var unitIndex = 0
+
+    while (value >= 1024 && unitIndex < units.size - 1) {
+        value /= 1024
+        unitIndex++
+    }
+
+    return "%.2f ${units[unitIndex]}".format(value)
+}

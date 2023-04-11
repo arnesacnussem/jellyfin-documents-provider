@@ -1,11 +1,11 @@
 package a.sac.jellyfindocumentsprovider.jellyfin
 
-import a.sac.jellyfindocumentsprovider.MediaLibraryListItem
-import a.sac.jellyfindocumentsprovider.ServerInfo
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
-import a.sac.jellyfindocumentsprovider.logcat
+import a.sac.jellyfindocumentsprovider.ui.WizardViewModel.MediaLibraryListItem
+import a.sac.jellyfindocumentsprovider.ui.WizardViewModel.ServerInfo
+import a.sac.jellyfindocumentsprovider.utils.logcat
 import android.content.Context
 import android.graphics.Point
 import android.provider.DocumentsContract.Document

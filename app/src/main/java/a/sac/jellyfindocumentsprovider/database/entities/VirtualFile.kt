@@ -1,7 +1,7 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
-import a.sac.jellyfindocumentsprovider.readable
-import a.sac.jellyfindocumentsprovider.short
+import a.sac.jellyfindocumentsprovider.utils.readable
+import a.sac.jellyfindocumentsprovider.utils.short
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id
 import io.objectbox.annotation.Index

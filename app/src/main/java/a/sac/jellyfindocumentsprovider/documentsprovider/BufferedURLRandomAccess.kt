@@ -1,13 +1,13 @@
 package a.sac.jellyfindocumentsprovider.documentsprovider
 
-import a.sac.jellyfindocumentsprovider.SortedLongRangeList
-import a.sac.jellyfindocumentsprovider.TAG
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.CacheInfo
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
-import a.sac.jellyfindocumentsprovider.logcat
-import a.sac.jellyfindocumentsprovider.readable
-import a.sac.jellyfindocumentsprovider.short
+import a.sac.jellyfindocumentsprovider.utils.SortedLongRangeList
+import a.sac.jellyfindocumentsprovider.utils.TAG
+import a.sac.jellyfindocumentsprovider.utils.logcat
+import a.sac.jellyfindocumentsprovider.utils.readable
+import a.sac.jellyfindocumentsprovider.utils.short
 import io.ktor.util.reflect.instanceOf
 import io.ktor.utils.io.errors.IOException
 import kotlinx.coroutines.*

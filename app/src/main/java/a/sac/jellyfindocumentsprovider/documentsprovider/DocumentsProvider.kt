@@ -4,7 +4,7 @@ import a.sac.jellyfindocumentsprovider.R
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
-import a.sac.jellyfindocumentsprovider.short
+import a.sac.jellyfindocumentsprovider.utils.short
 import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.database.Cursor

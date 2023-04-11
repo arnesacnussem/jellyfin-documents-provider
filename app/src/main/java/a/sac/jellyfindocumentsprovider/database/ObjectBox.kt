@@ -1,6 +1,5 @@
 package a.sac.jellyfindocumentsprovider.database
 
-import a.sac.jellyfindocumentsprovider.SortedLongRangeList
 import a.sac.jellyfindocumentsprovider.database.entities.CacheInfo
 import a.sac.jellyfindocumentsprovider.database.entities.CacheInfo_
 import a.sac.jellyfindocumentsprovider.database.entities.Credential
@@ -8,6 +7,7 @@ import a.sac.jellyfindocumentsprovider.database.entities.Credential_
 import a.sac.jellyfindocumentsprovider.database.entities.MyObjectBox
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile_
+import a.sac.jellyfindocumentsprovider.utils.SortedLongRangeList
 import android.content.Context
 import io.objectbox.Box
 import io.objectbox.BoxStore

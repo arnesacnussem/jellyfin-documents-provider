@@ -1,6 +1,6 @@
 package a.sac.jellyfindocumentsprovider.database
 
-import a.sac.jellyfindocumentsprovider.SortedLongRangeList
+import a.sac.jellyfindocumentsprovider.utils.SortedLongRangeList
 import io.objectbox.converter.PropertyConverter
 
 class SortedLongRangeListConvert : PropertyConverter<SortedLongRangeList, String> {
