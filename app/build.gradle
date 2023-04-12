@@ -4,7 +4,6 @@ plugins {
     id 'com.google.devtools.ksp' version '1.8.10-1.0.9'
     id 'kotlin-kapt'
     id 'com.google.dagger.hilt.android'
-    id 'org.jetbrains.kotlin.plugin.serialization' version '1.8.10'
 }
 
 Properties properties = new Properties()
@@ -139,13 +138,10 @@ dependencies {
     implementation "androidx.compose.material3:material3-window-size-class:1.0.1"
 
     // https://kotlin-sdk.jellyfin.org/guide/getting-started.html
-    implementation("org.jellyfin.sdk:jellyfin-core:1.4.1")
+    implementation("org.jellyfin.sdk:jellyfin-core:master-SNAPSHOT")
 
     implementation "com.google.dagger:hilt-android:2.44"
     kapt "com.google.dagger:hilt-compiler:2.44"
-
-    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1'
-
 
     debugImplementation("io.objectbox:objectbox-android-objectbrowser:$objectbox_version")
     releaseImplementation("io.objectbox:objectbox-android:$objectbox_version")

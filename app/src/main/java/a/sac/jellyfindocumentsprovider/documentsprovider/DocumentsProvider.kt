@@ -3,8 +3,14 @@ package a.sac.jellyfindocumentsprovider.documentsprovider
 import a.sac.jellyfindocumentsprovider.R
 import a.sac.jellyfindocumentsprovider.database.ObjectBox
 import a.sac.jellyfindocumentsprovider.jellyfin.JellyfinProvider
+import a.sac.jellyfindocumentsprovider.utils.PrefEnums.BitrateLimitType
+import a.sac.jellyfindocumentsprovider.utils.PrefEnums.BitrateLimits
+import a.sac.jellyfindocumentsprovider.utils.PrefEnums.PrefKeys
+import a.sac.jellyfindocumentsprovider.utils.PrefEnums.WaveType
+import a.sac.jellyfindocumentsprovider.utils.getEnum
 import a.sac.jellyfindocumentsprovider.utils.short
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.res.AssetFileDescriptor
 import android.database.Cursor
 import android.database.MatrixCursor
@@ -17,6 +23,7 @@ import android.os.StrictMode
 import android.os.storage.StorageManager
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
+import androidx.preference.PreferenceManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,19 +33,29 @@ import java.io.FileNotFoundException
 import java.net.HttpURLConnection
 import java.net.URL
 
+
 class DocumentsProvider : android.provider.DocumentsProvider() {
     private lateinit var jellyfinProvider: JellyfinProvider
     private val providerContext: Context by lazy { context!! }
     private val storageManager: StorageManager by lazy { providerContext.getSystemService(Context.STORAGE_SERVICE) as StorageManager }
+    private val preference: SharedPreferences by lazy {
+        PreferenceManager.getDefaultSharedPreferences(
+            providerContext
+        )
+    }
+
+    private val waveType
+        get() = preference.getEnum<WaveType>(PrefKeys.WAVE_TYPE)
+    private val bitrateLimits
+        get() = preference.getEnum<BitrateLimits>(PrefKeys.BITRATE_LIMIT)
+    private val bitrateLimitType
+        get() = preference.getEnum<BitrateLimitType>(PrefKeys.BITRATE_LIMIT_TYPE)
 
     override fun onCreate(): Boolean {
         jellyfinProvider = JellyfinProvider(requireContext())
         StrictMode.setVmPolicy(
-            StrictMode.VmPolicy.Builder()
-                .detectLeakedSqlLiteObjects()
-                .detectLeakedClosableObjects()
-                .penaltyLog()
-                .build()
+            StrictMode.VmPolicy.Builder().detectLeakedSqlLiteObjects().detectLeakedClosableObjects()
+                .penaltyLog().build()
         )
         return true
     }
@@ -94,9 +111,7 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
             }
 
             DocType.File -> {
-                ObjectBox
-                    .getVirtualFileByDocId(documentId)
-                    .appendVirtualFileRow(cursor)
+                ObjectBox.getVirtualFileByDocId(documentId).appendVirtualFileRow(cursor, waveType)
             }
 
             else -> TODO("Not yet implemented")
@@ -121,8 +136,9 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
             }
 
             DocType.L -> {
+                val wt = waveType
                 ObjectBox.getAllVirtualFileByLibraryId(xid).forEach {
-                    it.appendVirtualFileRow(cursor)
+                    it.appendVirtualFileRow(cursor, wt)
                 }
             }
 
@@ -195,13 +211,30 @@ class DocumentsProvider : android.provider.DocumentsProvider() {
     ): ParcelFileDescriptor {
         logcat { "openDocument(): documentId = $documentId, mode = $mode" }
         return ObjectBox.getVirtualFileByDocId(documentId).let { vf ->
-            jellyfinProvider.resolveFileURL(vf).let { url ->
-                RandomAccessBucket.getProxy(url, vf).let {
-                    storageManager.openProxyFileDescriptor(
-                        ParcelFileDescriptor.parseMode(mode),
-                        it,
-                        Handler(HandlerThread("fdProxyHandler-${documentId.short}").apply { start() }.looper)
-                    )
+            when (bitrateLimitType) {
+                BitrateLimitType.NONE -> jellyfinProvider.resolveFileURL(vf).let { url ->
+                    RandomAccessBucket.getProxy(url, vf, -1).let {
+                        storageManager.openProxyFileDescriptor(
+                            ParcelFileDescriptor.parseMode(mode),
+                            it,
+                            Handler(HandlerThread("fdProxyHandler-${documentId.short}").apply { start() }.looper)
+                        )
+                    }
+                }
+
+                BitrateLimitType.CELL, BitrateLimitType.ALL -> {
+                    val bitrate = bitrateLimits.bitrate * 1000
+                    jellyfinProvider.resolveAudioStreamingURL(
+                        vf, bitrate
+                    ).let { url ->
+                        RandomAccessBucket.getProxy(url, vf, bitrate).let {
+                            storageManager.openProxyFileDescriptor(
+                                ParcelFileDescriptor.parseMode(mode),
+                                it,
+                                Handler(HandlerThread("fdProxyHandler-${documentId.short}").apply { start() }.looper)
+                            )
+                        }
+                    }
                 }
             }
         }

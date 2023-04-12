@@ -1,7 +1,20 @@
 package a.sac.jellyfindocumentsprovider.utils
 
+import a.sac.jellyfindocumentsprovider.utils.PrefEnums.*
+import logcat.LogPriority
+
 @Suppress("unused")
 class PrefEnums {
+    enum class PrefKeys(val defaultEnum: Enum<*>, val asEnum: (name: String) -> Any) {
+        BITRATE_LIMIT(BitrateLimits.K320, { BitrateLimits.valueOf(it) }),
+        BITRATE_LIMIT_TYPE(BitrateLimitType.NONE, { BitrateLimitType.valueOf(it) }),
+        WAVE_TYPE(WaveType.REAL, { WaveType.valueOf(it) }),
+        LOG_LEVEL(LogPriority.DEBUG, { LogPriority.valueOf(it) });
+
+        val defaultVal
+            get() = defaultEnum.name
+    }
+
     enum class BitrateLimitType(
         val readable: String,
         val description: String,

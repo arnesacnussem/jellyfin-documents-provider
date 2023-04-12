@@ -21,6 +21,7 @@ import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
+import org.jellyfin.sdk.api.client.extensions.universalAudioApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.createJellyfin
@@ -43,8 +44,6 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         clientInfo = ClientInfo("JellyfinStorageProvider", version = "indev")
         context = ctx
     }
-    private val api = jellyfin.createApi()
-
 
     /**
      * Login with server info, will overwrite current login state
@@ -54,9 +53,7 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         if (baseUrl.isBlank()) {
             throw IllegalArgumentException("The baseUrl must not leave blank!")
         }
-        api.baseUrl = baseUrl
-        api.accessToken = null
-        api.userId = null
+        val api = jellyfin.createApi(baseUrl = baseUrl)
 
         try {
             val serverPublicSystemInfo by api.systemApi.getPublicSystemInfo()
@@ -242,12 +239,19 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
         }
     }
 
-
-    fun resolveFileURL(vf: VirtualFile): String =
-        withCredential(vf).libraryApi.getFileUrl(
+    fun resolveAudioStreamingURL(vf: VirtualFile, bitrate: Int) =
+        withCredential(vf).universalAudioApi.getUniversalAudioStreamUrl(
             UUID.fromString(vf.documentId),
-            includeCredentials = true
+            includeCredentials = true,
+            maxStreamingBitrate = bitrate,
+            audioBitRate = bitrate,
+            audioCodec = "opus",
+            transcodingContainer = "ts"
         )
+
+    fun resolveFileURL(vf: VirtualFile): String = withCredential(vf).libraryApi.getFileUrl(
+        UUID.fromString(vf.documentId), includeCredentials = true
+    )
 
     fun resolveThumbnailURL(vf: VirtualFile, sizeHint: Point?): String? {
         val mi = vf.mediaInfo.target
@@ -264,10 +268,9 @@ class JellyfinProvider @Inject constructor(@ApplicationContext private val ctx: 
 
     private fun withCredential(vf: VirtualFile) = withCredential(vf.credential.target)
 
-    private fun withCredential(credential: Credential): ApiClient {
-        api.accessToken = credential.token
-        api.baseUrl = credential.server
-        api.userId = UUID.fromString(credential.uid)
-        return api
-    }
+    private fun withCredential(credential: Credential): ApiClient = jellyfin.createApi(
+        baseUrl = credential.server,
+        userId = UUID.fromString(credential.uid),
+        accessToken = credential.token
+    )
 }

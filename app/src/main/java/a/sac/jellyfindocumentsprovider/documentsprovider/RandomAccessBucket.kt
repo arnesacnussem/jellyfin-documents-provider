@@ -3,46 +3,32 @@ package a.sac.jellyfindocumentsprovider.documentsprovider
 import a.sac.jellyfindocumentsprovider.database.entities.VirtualFile
 import a.sac.jellyfindocumentsprovider.utils.short
 import android.content.Context
-import android.content.Intent
-import com.maxmpz.poweramp.player.PowerampAPI
-import com.maxmpz.poweramp.player.PowerampAPIHelper
 import logcat.LogPriority
 import logcat.logcat
 import java.net.URL
 import java.nio.file.Path
 
 object RandomAccessBucket {
-    lateinit var onFinishDownload: (id: String) -> Unit
     fun init(context: Context) {
         tempFileRoot = context.applicationContext.cacheDir.toPath()
-        onFinishDownload = { id: String ->
-            logcat { "Sending re-scan request to poweramp." }
-            PowerampAPIHelper.sendPAIntent(
-                context,
-                Intent(PowerampAPI.Scanner.ACTION_SCAN_TAGS).putExtra(
-                    PowerampAPI.Scanner.EXTRA_FAST_SCAN,
-                    true
-                )
-            )
-        }
     }
 
     private lateinit var tempFileRoot: Path
     private val mapper = HashMap<String, URLRandomAccess>()
     private val refCnt = HashMap<String, Int>()
 
-    fun getProxy(url: String, vf: VirtualFile) =
-        URLProxyFileDescriptorCallback(getRA(url, vf)) {
+    fun getProxy(url: String, vf: VirtualFile, bitrate: Int) =
+        URLProxyFileDescriptorCallback(getRA(url, vf, bitrate)) {
             releaseRA(vf.documentId)
         }
 
-    private fun getRA(url: String, vf: VirtualFile): URLRandomAccess {
+    private fun getRA(url: String, vf: VirtualFile, bitrate: Int): URLRandomAccess {
         val key = vf.documentId
         synchronized(this) {
             refCnt[key] = refCnt.getOrDefault(key, 0) + 1
             if (mapper.containsKey(key))
                 return mapper[key]!!
-            else mapper[key] = newBufferedRA(url, vf)
+            else mapper[key] = newBufferedRA(url, vf, bitrate)
 
             logcat(LogPriority.DEBUG) { "get(${key.short}): refCnt = ${refCnt[key]}" }
             return mapper[key]!!
@@ -69,11 +55,12 @@ object RandomAccessBucket {
         it
     }
 
-    private fun newBufferedRA(url: String, vf: VirtualFile) =
+    private fun newBufferedRA(url: String, vf: VirtualFile, bitrate: Int) =
         BufferedURLRandomAccess(
             vf = vf,
             url = URL(url),
-            bufferSizeKB = 8,
-            bufferFile = newTempFile(vf.documentId)
+            bufferSizeKB = 128,
+            bufferFile = newTempFile(vf.documentId),
+            bitrate = bitrate
         )
 }

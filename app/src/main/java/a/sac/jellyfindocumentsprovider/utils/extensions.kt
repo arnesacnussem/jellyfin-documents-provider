@@ -1,5 +1,6 @@
 package a.sac.jellyfindocumentsprovider.utils
 
+import android.content.SharedPreferences
 import logcat.LogPriority
 import logcat.logcat as squareLogcat
 
@@ -67,3 +68,9 @@ fun convertBytesToHumanReadable(bytes: Long): String {
 
     return "%.2f ${units[unitIndex]}".format(value)
 }
+
+fun SharedPreferences.getString(key: PrefEnums.PrefKeys): String =
+    this.getString(key.name, null) ?: key.defaultVal
+
+@Suppress("UNCHECKED_CAST")
+fun <T> SharedPreferences.getEnum(key: PrefEnums.PrefKeys) = key.asEnum(this.getString(key)) as T

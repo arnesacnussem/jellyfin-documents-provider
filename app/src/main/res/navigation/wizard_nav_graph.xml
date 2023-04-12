@@ -70,5 +70,5 @@
     <fragment
         android:id="@+id/PreferenceFragment"
         android:name="a.sac.jellyfindocumentsprovider.ui.fragments.PreferenceFragment"
-        android:label="PreferenceFragment" />
+        android:label="Settings" />
 </navigation>

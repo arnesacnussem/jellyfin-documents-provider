@@ -13,16 +13,16 @@ data class PowerampExtraInfo(
     val lyrics: String?
 ) {
     private val hasLyrics get() = !lyrics.isNullOrBlank()
-    fun appendTo(row: MatrixCursor.RowBuilder, waveType: WaveType = WaveType.REAL) {
-        val flags = if (hasLyrics) TrackProviderConsts.FLAG_HAS_LYRICS else 0
-        row.add(TrackProviderConsts.COLUMN_FLAGS, flags)
-        row.add(TrackProviderConsts.COLUMN_TRACK_LYRICS_SYNCED, lyrics)
-
+    fun appendTo(row: MatrixCursor.RowBuilder, waveType: WaveType) {
+        if (hasLyrics) {
+            row.add(TrackProviderConsts.COLUMN_FLAGS, TrackProviderConsts.FLAG_HAS_LYRICS)
+            row.add(TrackProviderConsts.COLUMN_TRACK_LYRICS_SYNCED, lyrics)
+        }
         when (waveType) {
             WaveType.NONE ->
                 row.add(
                     TrackProviderConsts.COLUMN_TRACK_WAVE,
-                    TrackProviderHelper.floatsToBytes(FloatArray(0))
+                    byteArrayOf()
                 )
 
             WaveType.FAKE ->

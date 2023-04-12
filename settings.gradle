@@ -11,6 +11,13 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
+        maven {
+            url 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+            content {
+                // Only allow SDK snapshots
+                includeVersionByRegex("org\\.jellyfin\\.sdk", ".*", "master-SNAPSHOT")
+            }
+        }
     }
 }
 rootProject.name = "JellyfinDocumentsProvider"

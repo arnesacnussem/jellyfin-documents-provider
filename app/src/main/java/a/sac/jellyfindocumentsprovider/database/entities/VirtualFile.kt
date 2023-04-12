@@ -1,5 +1,6 @@
 package a.sac.jellyfindocumentsprovider.database.entities
 
+import a.sac.jellyfindocumentsprovider.utils.PrefEnums
 import a.sac.jellyfindocumentsprovider.utils.readable
 import a.sac.jellyfindocumentsprovider.utils.short
 import android.database.MatrixCursor
@@ -45,7 +46,8 @@ data class VirtualFile(
         else 0
 
     fun appendVirtualFileRow(
-        cursor: MatrixCursor
+        cursor: MatrixCursor,
+        waveType: PrefEnums.WaveType
     ) {
         val row = cursor.newRow()
         row.add(DocumentsContract.Document.COLUMN_DOCUMENT_ID, documentId)
@@ -54,10 +56,7 @@ data class VirtualFile(
         row.add(DocumentsContract.Document.COLUMN_MIME_TYPE, mimeType)
         row.add(DocumentsContract.Document.COLUMN_LAST_MODIFIED, lastModified)
         row.add(DocumentsContract.Document.COLUMN_FLAGS, flag)
-
-        if (this::mediaInfo.isInitialized && mediaInfo.isResolvedAndNotNull)
-            mediaInfo.target.appendTo(row)
-        if (this::powerampExtraInfo.isInitialized && powerampExtraInfo.isResolvedAndNotNull)
-            powerampExtraInfo.target.appendTo(row)
+        mediaInfo.target.appendTo(row)
+        powerampExtraInfo.target.appendTo(row, waveType)
     }
 }
