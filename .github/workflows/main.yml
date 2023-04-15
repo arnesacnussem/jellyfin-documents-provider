@@ -15,12 +15,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup Java
-        uses: actions/setup-java@v2
-        with:
-          java-version: '11'
-          distribution: microsoft
-
       - name: Write Keystore and Secret
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -29,8 +23,13 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > ks.jks
           echo "$SECRET_PROPERTIES" >> local.properties
 
-      - name: Build with Gradle
-        run: ./gradlew assemble assembleDebug
+      - name: Setup Java and build
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: microsoft
+          cache: 'gradle'
+        run: ./gradlew build --no-daemon
 
       - name: Create pre-release
         id: create_release
