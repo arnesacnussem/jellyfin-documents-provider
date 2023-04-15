@@ -23,12 +23,14 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > ks.jks
           echo "$SECRET_PROPERTIES" >> local.properties
 
-      - name: Setup Java and build
+      - name: Setup Java
         uses: actions/setup-java@v3
         with:
           java-version: '11'
           distribution: microsoft
           cache: 'gradle'
+
+      - name: Build APK
         run: ./gradlew build --no-daemon
 
       - name: Create pre-release
