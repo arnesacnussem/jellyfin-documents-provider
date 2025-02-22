@@ -7,12 +7,21 @@ Map [Jellyfin](https://jellyfin.org) to a DocumentsProvider to allow you use my 
 ## Features:
 
 [x] A simple DocumentsProvider that can mapping jellyfin apis to a DocumentsProvider
+
 [x] Multi-account support
+
 [ ] fix the 401 problem by re-login, do we want save username and password? is there a refresh token?
+
 [ ] Notifications
+
 [ ] PowerAMP specific support
+
 [ ] Cache file Management
+
 [ ] Thumbnail cache
+
 [ ] Stream quality settings
+
 [ ] Better UI
+
 [ ] Better error handling
