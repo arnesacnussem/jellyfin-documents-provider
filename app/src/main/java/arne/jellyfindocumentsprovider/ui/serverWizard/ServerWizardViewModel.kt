@@ -3,16 +3,18 @@ package arne.jellyfindocumentsprovider.ui.serverWizard
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
-import arne.hacks.logcat
-import arne.jellyfin.vfs.JellyfinAccessor
-import arne.jellyfin.vfs.JellyfinCredential
-import arne.jellyfin.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.ServerWizardActivity
+import arne.jellyfindocumentsprovider.ui.serverWizard.ServerWizardViewModel.Library.Companion.toLibrary
+import arne.jellyfindocumentsprovider.vfs.JellyfinAccessor.ServerInfo
+import arne.jellyfindocumentsprovider.vfs.JellyfinServer
+import arne.jellyfindocumentsprovider.vfs.ObjectBox
+import arne.jellyfindocumentsprovider.vfs.asString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import logcat.logcat
 import org.jellyfin.sdk.model.api.BaseItemDto
 
 class ServerWizardViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,7 +40,7 @@ class ServerWizardViewModel(application: Application) : AndroidViewModel(applica
         }.toMutableList()
     }
 
-    private var credential: JellyfinCredential? = null
+    private var server: JellyfinServer? = null
 
     fun markServerInvalid() {
         _state.value = State.INVALID_SERVER
@@ -48,8 +50,8 @@ class ServerWizardViewModel(application: Application) : AndroidViewModel(applica
         _state.value = State.VALIDATING_SERVER
         withContext(Dispatchers.IO) {
             try {
-                credential =
-                    JellyfinAccessor.ServerInfo(url.value, username.value, password.value)
+                server =
+                    ServerInfo(url.value, username.value, password.value)
                         .login(getApplication())
                 _state.value = State.VALID_SERVER
             } catch (e: Exception) {
@@ -62,9 +64,9 @@ class ServerWizardViewModel(application: Application) : AndroidViewModel(applica
         _state.value = State.LOADING_LIBRARY
         withContext(Dispatchers.IO) {
             try {
-                val libraries = credential!!.asAccessor(getApplication()).userView()
+                val libraries = server!!.asAccessor(getApplication()).libraries()
                 _libraries.value = (libraries?.map {
-                    Library(it.name ?: "Unknown", it.id.toString(), dto = it)
+                    it.toLibrary()
                 } ?: emptyList()).toMutableList()
                 _state.value =
                     (if (_libraries.value.isEmpty()) State.EMPTY_LIBRARY else State.LOADED_LIBRARY)
@@ -78,10 +80,10 @@ class ServerWizardViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun save(libraries: List<Library>, activityCtx: Context) {
-        val cred = credential!!.copy(
+        val cred = server!!.copy(
             library = libraries.filter { it.checked }.associate { it.id to it.name }
         )
-        ObjectBox.credential.put(cred)
+        ObjectBox.server.put(cred)
         (activityCtx as? ServerWizardActivity)?.finish()
     }
 
@@ -89,8 +91,14 @@ class ServerWizardViewModel(application: Application) : AndroidViewModel(applica
         val name: String,
         val id: String,
         var checked: Boolean = false,
-        val dto: BaseItemDto? = null
-    )
+        var type: String? = null,
+    ) {
+        companion object {
+            fun BaseItemDto.toLibrary(): Library {
+                return Library(name ?: "Unknown", id.asString(), type = collectionType?.name)
+            }
+        }
+    }
 
     enum class State {
         INVALID_SERVER,

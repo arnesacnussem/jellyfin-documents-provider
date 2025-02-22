@@ -16,10 +16,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://jitpack.io")
     }
 }
 
 rootProject.name = "JellyfinDocumentsProvider"
 include(":app")
-include(":hacks")
-include(":jellyfin-vfs")

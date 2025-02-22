@@ -27,10 +27,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import arne.hacks.logcat
 import arne.jellyfindocumentsprovider.ui.serverWizard.ServerWizardViewModel.State
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import logcat.logcat
 import java.util.UUID
 
 @Preview
@@ -41,11 +41,6 @@ fun LibrarySelectionScreen(viewModel: ServerWizardViewModel = viewModel()) {
     val libraries by viewModel.libraries.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    LaunchedEffect(state) {
-        logcat {
-            "state: $state"
-        }
-    }
     LaunchedEffect(Unit) {
         coroutineScope.launch(Dispatchers.IO) {
             viewModel.loadLibraries()
@@ -130,7 +125,7 @@ fun LibrarySelectionScreen(viewModel: ServerWizardViewModel = viewModel()) {
 
 @Composable
 @Preview
-private fun LibraryItem(
+fun LibraryItem(
     @PreviewParameter(LibraryProvider::class) library: ServerWizardViewModel.Library,
     onClick: () -> Unit = {}
 ) {
@@ -145,12 +140,10 @@ private fun LibraryItem(
         onClick = onClick,
         shape = CardDefaults.elevatedShape,
     ) {
-        ListItem(headlineContent = { Text("${library.name} (${library.dto?.collectionType ?: "Unknown Type"})") },
+        ListItem(headlineContent = { Text("${library.name} (${library.type ?: "Unknown Type"})") },
             supportingContent = {
                 Column {
                     Text("ID: ${library.id}")
-                    Text("Album Count: ${library.dto?.albumCount ?: "Unknown"}")
-                    Text("Song Count: ${library.dto?.songCount ?: "Unknown"}")
                 }
             })
     }

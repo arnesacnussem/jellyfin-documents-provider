@@ -14,10 +14,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JellyfinDocumentsProvider"
         tools:targetApi="31">
-        <service
-            android:name=".services.SyncService"
-            android:enabled="true"
-            android:exported="false" />
 
         <activity
             android:name=".ServerWizardActivity"
@@ -35,6 +31,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <provider
+            android:authorities="arne.jellyfindocumentsprovider"
+            android:name=".provider.DocumentsProvider"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS"
+            android:icon="@mipmap/ic_launcher"
+            >
+            <!-- This meta allows Poweramp to identify tracks provider and enables it for Poweramp -->
+<!--            <meta-data android:name="com.maxmpz.PowerampTrackProvider" android:value="true"/>-->
+
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
     </application>
 
 </manifest>

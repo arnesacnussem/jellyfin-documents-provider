@@ -1,0 +1,355 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:98581851124337507",
+      "lastPropertyId": "8:7851943575692862517",
+      "name": "CacheInfo",
+      "properties": [
+        {
+          "id": "1:8362812626380473478",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3884611882077937041",
+          "name": "vfDocId",
+          "indexId": "1:8050583070565231156",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:3593112963621748958",
+          "name": "localPath",
+          "type": 9
+        },
+        {
+          "id": "4:6631713167623096251",
+          "name": "localLength",
+          "type": 6
+        },
+        {
+          "id": "5:1507195436065033887",
+          "name": "bitrate",
+          "type": 5
+        },
+        {
+          "id": "6:8039481329934755131",
+          "name": "isCompleted",
+          "type": 1
+        },
+        {
+          "id": "7:5481503277812836195",
+          "name": "chunks",
+          "type": 9
+        },
+        {
+          "id": "8:7851943575692862517",
+          "name": "virtualFileId",
+          "indexId": "2:4286082047288896755",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "VirtualFile"
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:4455974490710089490",
+      "lastPropertyId": "9:6020053053208589361",
+      "name": "JellyfinServer",
+      "properties": [
+        {
+          "id": "1:2772045382929962486",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8158283833917406448",
+          "name": "uuid",
+          "indexId": "3:3347840062047550271",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:2734606695429066629",
+          "name": "url",
+          "type": 9
+        },
+        {
+          "id": "4:7025215418477734868",
+          "name": "serverName",
+          "type": 9
+        },
+        {
+          "id": "5:1865531134730463560",
+          "name": "library",
+          "type": 13
+        },
+        {
+          "id": "6:8035510848471980514",
+          "name": "username",
+          "type": 9
+        },
+        {
+          "id": "7:8772644552336225920",
+          "name": "token",
+          "type": 9
+        },
+        {
+          "id": "9:6020053053208589361",
+          "name": "lastUpdateAt",
+          "type": 6
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "4:9175652411534756115",
+      "lastPropertyId": "2:6201626757184446226",
+      "name": "PowerampExtraInfo",
+      "properties": [
+        {
+          "id": "1:5799453224270976428",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:6201626757184446226",
+          "name": "lyrics",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "5:6284753900597581652",
+      "lastPropertyId": "23:2092329740216488330",
+      "name": "VirtualFile",
+      "properties": [
+        {
+          "id": "1:527273731479588892",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8789368920883463837",
+          "name": "name",
+          "type": 9
+        },
+        {
+          "id": "3:3987609830833664142",
+          "name": "documentId",
+          "indexId": "4:8301497675943006434",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "4:691765737197722687",
+          "name": "mimeType",
+          "type": 9
+        },
+        {
+          "id": "5:3540248958806539534",
+          "name": "displayName",
+          "type": 9
+        },
+        {
+          "id": "6:2433727893657147035",
+          "name": "lastModified",
+          "type": 6
+        },
+        {
+          "id": "7:3495889347303728538",
+          "name": "size",
+          "type": 6
+        },
+        {
+          "id": "8:2269526500900567482",
+          "name": "libId",
+          "indexId": "5:4673521498072490404",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "9:1737852422215907657",
+          "name": "serverId",
+          "indexId": "6:8301700813709415260",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "JellyfinServer"
+        },
+        {
+          "id": "11:9131668262754818904",
+          "name": "powerampExtId",
+          "type": 6
+        },
+        {
+          "id": "13:6373400466611329152",
+          "name": "providerId",
+          "type": 9
+        },
+        {
+          "id": "14:1517428606884080599",
+          "name": "duration",
+          "type": 6
+        },
+        {
+          "id": "15:180455727879011598",
+          "name": "year",
+          "type": 5
+        },
+        {
+          "id": "16:8658017814534176067",
+          "name": "title",
+          "type": 9
+        },
+        {
+          "id": "17:1584416698464543314",
+          "name": "album",
+          "type": 9
+        },
+        {
+          "id": "18:2307945910004355575",
+          "name": "track",
+          "type": 5
+        },
+        {
+          "id": "19:6402582414521980793",
+          "name": "artist",
+          "type": 9
+        },
+        {
+          "id": "20:9155898377236726747",
+          "name": "bitrate",
+          "type": 5
+        },
+        {
+          "id": "21:6587074437912832200",
+          "name": "albumId",
+          "type": 9
+        },
+        {
+          "id": "22:3306559021596007384",
+          "name": "albumCoverTag",
+          "type": 9
+        },
+        {
+          "id": "23:2092329740216488330",
+          "name": "thumbCacheId",
+          "indexId": "12:4897323531939495258",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "ThumbCache"
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "6:6768582669528962654",
+      "lastPropertyId": "5:1715268425090138893",
+      "name": "AlbumInfo",
+      "properties": [
+        {
+          "id": "1:1310870263929762712",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:8803846492999396669",
+          "name": "uuid",
+          "indexId": "8:6578960858188209367",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "3:671474483238204072",
+          "name": "name",
+          "type": 9
+        },
+        {
+          "id": "4:4648652819586020710",
+          "name": "libId",
+          "indexId": "9:6979330115788643034",
+          "type": 9,
+          "flags": 2048
+        },
+        {
+          "id": "5:1715268425090138893",
+          "name": "thumbCacheId",
+          "indexId": "13:3229308549902614042",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "ThumbCache"
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "7:5589221481494127040",
+      "lastPropertyId": "5:6700179585730267594",
+      "name": "ThumbCache",
+      "properties": [
+        {
+          "id": "1:5977407649850382827",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "3:6905019993355281583",
+          "name": "data",
+          "type": 23
+        },
+        {
+          "id": "5:6700179585730267594",
+          "name": "checkedServer",
+          "type": 1
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "7:5589221481494127040",
+  "lastIndexId": "13:3229308549902614042",
+  "lastRelationId": "1:3791793334882932469",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [
+    926404792164972362
+  ],
+  "retiredIndexUids": [
+    203090656025552683,
+    3311465939832229587,
+    8715635335377914257
+  ],
+  "retiredPropertyUids": [
+    6833973638404197285,
+    8958172787251149747,
+    6788265784414855669,
+    2373907439003361129,
+    2058499767909002686,
+    4631153780376120361,
+    373342778311100667,
+    3041398219968940081,
+    1596528434256142984,
+    6491227175537217328,
+    8182733455277217140,
+    4516081590513820228,
+    6090410018448234534,
+    7060521808969499314,
+    7029471294486716532
+  ],
+  "retiredRelationUids": [
+    3791793334882932469
+  ],
+  "version": 1
+}

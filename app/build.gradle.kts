@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "arne.jellyfindocumentsprovider"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "arne.jellyfindocumentsprovider"
@@ -69,7 +69,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.navigation.compose)
-    implementation(project(":hacks"))
     implementation(libs.androidx.runtime.livedata)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -79,7 +78,18 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    implementation(project(":jellyfin-vfs"))
-    implementation(project(":hacks"))
     implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.logcat)
+    implementation(kotlin("reflect"))
+
+    implementation(libs.jellyfin.core)
+    implementation(libs.powerampapi)
+
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.objectbox.android.objectbrowser)
 }
+apply(plugin = "io.objectbox")

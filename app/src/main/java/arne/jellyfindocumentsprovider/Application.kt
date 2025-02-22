@@ -1,15 +1,28 @@
 package arne.jellyfindocumentsprovider
 
 import android.app.Application
-import arne.jellyfin.vfs.ObjectBox
+import arne.jellyfindocumentsprovider.provider.RandomAccessBucket
+import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
 
+
+@Volatile
+var isInitialized = false
+
 class Application : Application() {
     override fun onCreate() {
         super.onCreate()
-        LogcatLogger.install(AndroidLogcatLogger(LogPriority.DEBUG))
-        ObjectBox.init(this)
+        initializeIfNeeded()
+    }
+
+    fun initializeIfNeeded() {
+        if (!isInitialized) {
+            isInitialized = true
+            LogcatLogger.install(AndroidLogcatLogger(LogPriority.VERBOSE))
+            ObjectBox.init(this)
+            RandomAccessBucket.init(applicationContext.cacheDir.toPath())
+        }
     }
 }
