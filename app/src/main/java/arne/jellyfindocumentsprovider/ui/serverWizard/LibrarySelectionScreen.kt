@@ -30,7 +30,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import arne.jellyfindocumentsprovider.ui.serverWizard.ServerWizardViewModel.State
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import logcat.logcat
 import java.util.UUID
 
 @Preview
@@ -96,6 +95,7 @@ fun LibrarySelectionScreen(viewModel: ServerWizardViewModel = viewModel()) {
                     libraries.map {
                         LibraryItem(
                             it,
+                            checked = it.checked,
                             onClick = {
                                 viewModel.toggleLibraryChecked(it.id)
                             },
@@ -127,13 +127,14 @@ fun LibrarySelectionScreen(viewModel: ServerWizardViewModel = viewModel()) {
 @Preview
 fun LibraryItem(
     @PreviewParameter(LibraryProvider::class) library: ServerWizardViewModel.Library,
+    checked: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     ElevatedCard(
         modifier = Modifier
             .padding(bottom = 16.dp)
             .border(
-                width = if (library.checked) 3.dp else 0.dp,
+                width = if (checked) 3.dp else 0.dp,
                 color = MaterialTheme.colorScheme.primary,
                 shape = CardDefaults.elevatedShape,
             ),

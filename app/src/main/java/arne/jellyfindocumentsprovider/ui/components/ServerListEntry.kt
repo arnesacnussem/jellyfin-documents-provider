@@ -58,19 +58,15 @@ data class ServerListEntryInfo(
     val itemCount: Long,
     val user: String,
     val libCount: Int
-) {
-    fun toJellyfinServer() = ObjectBox.server.get(db)
-}
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 @Preview
 fun ServerItem(
     @PreviewParameter(ServerItemProvider::class) info: ServerListEntryInfo,
-    sync: () -> Unit = {},
     delete: () -> Unit = {},
     onClick: () -> Unit = {},
-    progressBar: @Composable () -> Unit = {},
 ) {
     val density = LocalDensity.current
     val dragState = remember {
@@ -102,24 +98,7 @@ fun ServerItem(
         ) {
             Box(
                 modifier = Modifier
-                    .width(64.dp)
-                    .fillMaxHeight()
-                    .background(
-                        color = MaterialTheme.colorScheme.inversePrimary
-                    )
-                    .clickable {
-                        coroutineScope.launch {
-                            dragState.snapTo(MyDragAnchor.Start)
-                            logcat { "request for sync ${info.url}" }
-                            sync()
-                        }
-                    }, contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Outlined.Sync, "Sync")
-            }
-            Box(
-                modifier = Modifier
-                    .width(64.dp)
+                    .width(128.dp)
                     .fillMaxHeight()
                     .background(
                         color = Color(211, 47, 47, 255)
@@ -188,7 +167,6 @@ fun ServerItem(
             }
         }
     }
-    progressBar()
 }
 
 

@@ -11,6 +11,7 @@ import androidx.work.impl.utils.futures.SettableFuture
 import androidx.work.workDataOf
 import arne.jellyfindocumentsprovider.R
 import arne.jellyfindocumentsprovider.hacks.fromMap
+import arne.jellyfindocumentsprovider.hacks.toPropertyMap
 import arne.jellyfindocumentsprovider.ui.PROGRESS_NOTIFICATION_ID
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.runBlocking
@@ -46,24 +47,8 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     override fun doWork(): Result {
-        @Suppress("UNCHECKED_CAST")
-        val request = fromMap<SyncRequest>(inputData.keyValueMap as Map<String, Any>)
-        val idList = if (request.all) {
-            ObjectBox.server.all
-        } else {
-            val fromDB = ObjectBox.server.get(request.id.toList())
-            if (fromDB.size != request.id.size) {
-                return Result.failure(
-                    workDataOf(
-                        "reason" to "Some of the server info not found"
-                    )
-                )
-            }
-            fromDB
-        }
-
         return runBlocking {
-            sync(idList)
+            sync(ObjectBox.server.all)
         }
     }
 
@@ -75,15 +60,8 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
             return Result.failure()
         }
 
-        /**
-         * -1 means pending
-         * [0, 100) means progress
-         * 100 means done
-         */
         setProgressAsync(
-            workDataOf(
-                *credential.associate { it.uuid to -1 }.toList().toTypedArray()
-            )
+            SyncTaskProgress(-1, credential.size).toWorkData()
         )
         credential.forEachIndexed { index, c ->
             logcat {
@@ -102,7 +80,7 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 )
                 val percent = if (total <= 0) -1 else 100 * proceed / total
                 setProgressAsync(
-                    workDataOf(c.uuid to percent)
+                    SyncTaskProgress(proceed, total).toWorkData()
                 )
             }
         }
@@ -113,8 +91,16 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     @Suppress("ArrayInDataClass")
-    data class SyncRequest(
-        val id: Array<Long> = emptyArray(),
-        val all: Boolean = false
-    )
+    data class SyncTaskProgress(
+        val current: Int,
+        val total: Int,
+        val step: Int = 0,
+        val totalSteps: Int = 0,
+    ) {
+        fun toWorkData() = workDataOf(*this.toPropertyMap().toList().toTypedArray())
+
+        companion object {
+            fun fromWorkData(data: Map<String, Any>) = fromMap<SyncTaskProgress>(data)
+        }
+    }
 }

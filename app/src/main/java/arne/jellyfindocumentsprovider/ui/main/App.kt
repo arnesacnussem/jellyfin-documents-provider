@@ -1,7 +1,7 @@
 package arne.jellyfindocumentsprovider.ui.main
 
 import android.content.Intent
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Settings
@@ -29,6 +30,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -42,11 +44,11 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.work.WorkManager
 import arne.jellyfindocumentsprovider.ServerWizardActivity
 import arne.jellyfindocumentsprovider.common.LocalSnackbarHostState
 
@@ -58,11 +60,19 @@ fun App(appViewModel: AppViewModel = viewModel()) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val snackbarHostState = LocalSnackbarHostState.current
+    val workManager = remember { WorkManager.getInstance(context) }
     val viewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current) {
         "No ViewModelStoreOwner was provided via LocalViewModelStoreOwner"
     }
-    val loading = appViewModel.loading.collectAsState()
     val backStackEntry = navController.currentBackStackEntryAsState()
+
+    val progress by appViewModel.progress.collectAsState()
+    val sync by appViewModel.sync.collectAsState()
+    LaunchedEffect(sync) {
+        with(appViewModel) {
+            workManager.observeProgress()
+        }
+    }
     Scaffold(modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -73,6 +83,11 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                 Text("Home")
             }, actions = {
                 IconButton(onClick = {
+                    with(appViewModel) {
+                        workManager.requestSync()
+                    }
+                }, content = { Icon(Icons.Filled.Sync, contentDescription = "Sync") })
+                IconButton(onClick = {
                     context.startActivity(
                         Intent(
                             context, ServerWizardActivity::class.java
@@ -80,11 +95,6 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                     )
                 }, content = { Icon(Icons.Filled.Add, contentDescription = "Add Server") })
             })
-            if (loading.value) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
         },
         bottomBar = {
             BottomAppBar {
@@ -111,26 +121,15 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                 }
             }
         }) { innerPadding ->
-        AppContent(
-            navController, innerPadding, slideDirection, viewModelStoreOwner
-        )
-    }
-}
 
-@Composable
-fun AppContent(
-    navController: NavHostController,
-    innerPadding: PaddingValues,
-    slideDirection: Int,
-    viewModelStoreOwner: ViewModelStoreOwner
-) {
-    NavHost(
-        navController = navController,
-        startDestination = AppRoute.Home.name,
-        modifier = Modifier
-            .padding(innerPadding)
-            .fillMaxHeight()
-            .fillMaxWidth(),
+        Column(modifier = Modifier.padding(innerPadding)) {
+            if (progress > 0) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            NavHost(
+                navController = navController,
+                startDestination = AppRoute.Home.name,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(),
 //        enterTransition = {
 //            slideInHorizontally(
 //                initialOffsetX = { it },
@@ -149,12 +148,15 @@ fun AppContent(
 //                animationSpec = tween(durationMillis = 300)
 //            )
 //        },
-    ) {
-        composable(AppRoute.Home.name) { Wrapper(viewModelStoreOwner) { HomeScreen() } }
-        composable(AppRoute.Cache.name) { Wrapper(viewModelStoreOwner) { CacheMgrScreen() } }
-        composable(AppRoute.Settings.name) { Wrapper(viewModelStoreOwner) { SettingScreen() } }
+            ) {
+                composable(AppRoute.Home.name) { Wrapper(viewModelStoreOwner) { HomeScreen() } }
+                composable(AppRoute.Cache.name) { Wrapper(viewModelStoreOwner) { CacheMgrScreen() } }
+                composable(AppRoute.Settings.name) { Wrapper(viewModelStoreOwner) { SettingScreen() } }
+            }
+        }
     }
 }
+
 
 @Composable
 fun Wrapper(

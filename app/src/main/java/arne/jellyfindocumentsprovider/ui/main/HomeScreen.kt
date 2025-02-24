@@ -33,20 +33,10 @@ fun HomeScreen(
     vm: AppViewModel = viewModel()
 ) {
     val nav = useNav()
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
     var showDeleteConfirm by remember { mutableStateOf<ServerListEntryInfo?>(null) }
-    val workManager = remember { WorkManager.getInstance(context) }
     val servers by vm.servers.collectAsState()
-    val sync by vm.sync.collectAsState()
-    val progress by vm.progress.collectAsState()
-
-    LaunchedEffect(sync) {
-        with(vm) {
-            workManager.observeProgress()
-        }
-    }
 
     LaunchedEffect(lifecycleState) {
         when (lifecycleState) {
@@ -64,11 +54,6 @@ fun HomeScreen(
         servers.map { s ->
             ServerItem(
                 info = s,
-                sync = {
-                    with(vm) {
-                        workManager.requestSync(s)
-                    }
-                },
                 delete = {
                     showDeleteConfirm = s
                 },
@@ -77,13 +62,6 @@ fun HomeScreen(
                         navigate("server-setting/${s.db}")
                     }
                 },
-                progressBar = {
-                    val p = progress[s.id] ?: return@ServerItem
-                    if (p == -1 || p == 100)
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
-                    else
-                        LinearProgressIndicator(p / 100f)
-                }
             )
         }
         if (servers.isEmpty()) Text("No servers found")

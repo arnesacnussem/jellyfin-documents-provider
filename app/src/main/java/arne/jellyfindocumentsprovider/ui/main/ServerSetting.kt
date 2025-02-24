@@ -33,6 +33,7 @@ import arne.jellyfindocumentsprovider.ui.serverWizard.ServerWizardViewModel.Libr
 import arne.jellyfindocumentsprovider.vfs.JellyfinServer
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import kotlinx.coroutines.launch
+import logcat.logcat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,56 +57,48 @@ fun ServerSetting(id: Long = 0) {
     val snackbar = useLocalSnackbar()
 
     with(query) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                "Server Settings - ${credential.username}@${credential.serverName}",
-                                fontSize = 20.sp
-                            )
-                            Text(credential.url, fontSize = 16.sp)
-                        }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = { nav { popBackStack() } }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back"
-                            )
-                        }
-                    },
-                    actions = {
-                        IconButton(
-                            enabled = state.isSuccess,
-                            onClick = {
-                                coroutineScope.launch {
-                                    ObjectBox.server.put(credential.copy(
-                                        library = if (!data.isNullOrEmpty()) {
-                                            data.associate { it.id to it.name }.filter {
-                                                selection[it.key] == true
-                                            }
-                                        } else credential.library
-                                    ))
-                                    nav { popBackStack() }
-                                    snackbar {
-                                        showSnackbar("Saved", duration = SnackbarDuration.Long)
-                                    }
-                                }
+        Scaffold(topBar = {
+            TopAppBar(title = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Server Settings - ${credential.username}@${credential.serverName}",
+                        fontSize = 20.sp
+                    )
+                    Text(credential.url, fontSize = 16.sp)
+                }
+            }, navigationIcon = {
+                IconButton(onClick = { nav { popBackStack() } }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back"
+                    )
+                }
+            }, actions = {
+                IconButton(enabled = state.isSuccess, onClick = {
+                    coroutineScope.launch {
+                        ObjectBox.server.put(credential.copy(library = if (data.isNullOrEmpty()) credential.library
+                        else {
+                            data.associate { it.id to it.name }.filter {
+                                selection[it.key] == true
+                            }.also {
+                                logcat { "Selected: $it" }
                             }
-                        ) {
-                            Icon(Icons.Filled.Save, contentDescription = "Save")
+                        }))
+                        nav { popBackStack() }
+                        snackbar {
+                            showSnackbar("Saved", duration = SnackbarDuration.Long)
                         }
-                    })
-            }
-        ) { innerPadding ->
-            if (state.isLoading)
-                LinearProgressIndicator(
-                    Modifier
-                        .padding(innerPadding)
-                        .fillMaxWidth()
-                )
+                    }
+                }) {
+                    Icon(Icons.Filled.Save, contentDescription = "Save")
+                }
+            })
+        }) { innerPadding ->
+            if (state.isLoading) LinearProgressIndicator(
+                Modifier
+                    .padding(innerPadding)
+                    .fillMaxWidth()
+            )
             Column(
                 modifier = Modifier
                     .padding(innerPadding)
@@ -113,24 +106,23 @@ fun ServerSetting(id: Long = 0) {
             ) {
 
                 if (state.isSuccess) {
-                    if (data.isNullOrEmpty())
-                        Text("No libraries found")
+                    if (data.isNullOrEmpty()) Text("No libraries found")
                     else {
-                        data.map {
-                            LibraryItem(it.apply {
-                                checked = selection[it.id] == true
-                            }, onClick = {
-                                selection[it.id] = !selection[it.id]!!
-                            })
+                        data.forEach {
+                            LibraryItem(
+                                it,
+                                checked = selection[it.id] == true,
+                                onClick = {
+                                    selection[it.id] = !selection[it.id]!!
+                                })
                         }
                     }
                 }
 
-                if (state.isError)
-                    Column {
-                        Text("Error loading library")
-                        Text(state.message ?: "Unknown Error")
-                    }
+                if (state.isError) Column {
+                    Text("Error loading library")
+                    Text(state.message ?: "Unknown Error")
+                }
             }
         }
     }

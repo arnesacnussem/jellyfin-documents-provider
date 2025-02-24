@@ -22,6 +22,7 @@ import arne.jellyfindocumentsprovider.common.BitrateLimits
 import arne.jellyfindocumentsprovider.common.PrefKeys
 import arne.jellyfindocumentsprovider.common.WaveType
 import arne.jellyfindocumentsprovider.common.getEnum
+import arne.jellyfindocumentsprovider.hacks.MemoryFileFD
 import arne.jellyfindocumentsprovider.hacks.short
 import arne.jellyfindocumentsprovider.vfs.FSProvider
 import arne.jellyfindocumentsprovider.vfs.FSProvider.getAudioStreamFactory
@@ -30,9 +31,6 @@ import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.vfs.asAndroidMatrixCursor
 import arne.jellyfindocumentsprovider.vfs.toProjection
 import arne.jellyfindocumentsprovider.vfs.toVPath
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.logcat
 import java.io.FileNotFoundException
@@ -121,20 +119,11 @@ class DocumentsProvider : DocumentsProvider() {
         val vPath = documentId.toVPath() ?: return null
         return providerContext.thumbnailFromCacheOrRemote(vPath, sizeHint)
             ?.let { data ->
-                val (read, write) = ParcelFileDescriptor.createPipe()
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        ParcelFileDescriptor.AutoCloseOutputStream(write).use { output ->
-                            output.write(data)
-                            output.flush()
-                            output.close()
-                        }
-                    } catch (e: Exception) {
-                        // Handle any exceptions that occur while downloading the thumbnail
-                        logcat(LogPriority.ERROR) { "openDocumentThumbnail: failed to get thumbnail $documentId \n${e.stackTraceToString()}" }
+                MemoryFileFD(data).use { mf ->
+                    ParcelFileDescriptor.dup(mf.fd).use {
+                        return AssetFileDescriptor(it, 0, data.size.toLong())
                     }
                 }
-                AssetFileDescriptor(read, 0, data.size.toLong())
             }
     }
 

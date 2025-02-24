@@ -6,21 +6,15 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import arne.jellyfindocumentsprovider.hacks.toPropertyMap
+import arne.jellyfindocumentsprovider.ui.components.ServerListEntryInfo
 import arne.jellyfindocumentsprovider.vfs.DatabaseSyncWorker
-import arne.jellyfindocumentsprovider.vfs.DatabaseSyncWorker.SyncRequest
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.vfs.countByServer
-import arne.jellyfindocumentsprovider.ui.components.ServerListEntryInfo
-import arne.jellyfindocumentsprovider.vfs.JellyfinServer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import logcat.logcat
 
 class AppViewModel : ViewModel() {
-    private var _loading = MutableStateFlow(true)
-    val loading: StateFlow<Boolean>
-        get() = _loading
     private val _servers = MutableStateFlow<List<ServerListEntryInfo>>(mutableListOf())
     val servers: StateFlow<List<ServerListEntryInfo>>
         get() = _servers
@@ -30,13 +24,12 @@ class AppViewModel : ViewModel() {
         get() = _sync
 
     private val _progressRec = mutableMapOf<String, Int>()
-    private var _progress = MutableStateFlow<Map<String, Int>>(mapOf())
-    val progress: StateFlow<Map<String, Int>>
+    private var _progress = MutableStateFlow<Int>(-1)
+    val progress: StateFlow<Int>
         get() = _progress
 
 
     fun updateServerList() {
-        _loading.value = true
         _servers.value = ObjectBox.server.all.map {
             ServerListEntryInfo(
                 db = it.id,
@@ -48,11 +41,10 @@ class AppViewModel : ViewModel() {
                 libCount = it.library.size
             )
         }
-        _loading.value = false
     }
 
     @Synchronized
-    fun WorkManager.requestSync(info: ServerListEntryInfo?) {
+    fun WorkManager.requestSync() {
         if (_sync.value != null) {
             logcat {
                 "Sync already in progress"
@@ -60,14 +52,6 @@ class AppViewModel : ViewModel() {
             return
         }
         _sync.value = OneTimeWorkRequestBuilder<DatabaseSyncWorker>()
-            .setInputData(
-                workDataOf(
-                    *SyncRequest(
-                        listOfNotNull(info?.db).toTypedArray(),
-                        all = info == null
-                    ).toPropertyMap().toList().toTypedArray()
-                )
-            )
             .setExpedited(OutOfQuotaPolicy.DROP_WORK_REQUEST)
             .build()
         this.enqueue(_sync.value!!)
@@ -75,17 +59,20 @@ class AppViewModel : ViewModel() {
 
     suspend fun WorkManager.observeProgress() {
         if (_sync.value == null) {
-            _progress.value = mapOf()
+            _progress.value = -1
             return
         }
         getWorkInfoByIdFlow(_sync.value!!.id).collect {
             @Suppress("UNCHECKED_CAST")
             val workProgress = it?.progress?.keyValueMap as Map<String, Int>
+            // TODO: fix progress indicator
             _progressRec.putAll(workProgress)
-            _progress.value = _progressRec.toMap()
+            _progress.value = 1
 
             if (it.state.isFinished) {
                 _sync.value = null
+                _progress.value = -1
+                updateServerList()
             }
         }
     }

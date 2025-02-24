@@ -253,7 +253,7 @@
     },
     {
       "id": "6:6768582669528962654",
-      "lastPropertyId": "4:4648652819586020710",
+      "lastPropertyId": "5:1715268425090138893",
       "name": "AlbumInfo",
       "properties": [
         {
@@ -280,6 +280,14 @@
           "indexId": "9:6979330115788643034",
           "type": 9,
           "flags": 2048
+        },
+        {
+          "id": "5:1715268425090138893",
+          "name": "thumbCacheId",
+          "indexId": "13:3229308549902614042",
+          "type": 11,
+          "flags": 520,
+          "relationTarget": "ThumbCache"
         }
       ],
       "relations": []
@@ -310,7 +318,7 @@
     }
   ],
   "lastEntityId": "7:5589221481494127040",
-  "lastIndexId": "12:4897323531939495258",
+  "lastIndexId": "13:3229308549902614042",
   "lastRelationId": "1:3791793334882932469",
   "lastSequenceId": "0:0",
   "modelVersion": 5,
