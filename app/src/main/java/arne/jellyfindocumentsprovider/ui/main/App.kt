@@ -10,10 +10,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inbox
+
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,6 +54,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.work.WorkManager
 import arne.jellyfindocumentsprovider.ServerWizardActivity
 import arne.jellyfindocumentsprovider.common.LocalSnackbarHostState
+import arne.jellyfindocumentsprovider.ui.components.StatusBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
@@ -100,7 +104,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
             BottomAppBar {
                 NavigationBar {
                     listOf(
-                        AppRoute.Home, AppRoute.Cache, AppRoute.Settings
+                        AppRoute.Home, AppRoute.Cache, AppRoute.Logs, AppRoute.Settings
                     ).forEach {
                         val selected = it.name == backStackEntry.value?.destination?.route
                         NavigationBarItem(icon = {
@@ -124,6 +128,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
 
         Column(modifier = Modifier.padding(innerPadding)) {
             if (progress > 0) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            StatusBar()
             NavHost(
                 navController = navController,
                 startDestination = AppRoute.Home.name,
@@ -151,6 +156,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
             ) {
                 composable(AppRoute.Home.name) { Wrapper(viewModelStoreOwner) { HomeScreen() } }
                 composable(AppRoute.Cache.name) { Wrapper(viewModelStoreOwner) { CacheMgrScreen() } }
+                composable(AppRoute.Logs.name) { LogScreen() }
                 composable(AppRoute.Settings.name) { Wrapper(viewModelStoreOwner) { SettingScreen() } }
             }
         }
@@ -176,5 +182,6 @@ sealed class AppRoute(
 ) {
     data object Home : AppRoute("Home", Icons.Outlined.Home, Icons.Filled.Home)
     data object Cache : AppRoute("Caches", Icons.Outlined.Inbox, Icons.Filled.Inbox)
+    data object Logs : AppRoute("Logs", Icons.AutoMirrored.Outlined.List, Icons.AutoMirrored.Filled.List)
     data object Settings : AppRoute("Settings", Icons.Outlined.Settings, Icons.Filled.Settings)
 }
