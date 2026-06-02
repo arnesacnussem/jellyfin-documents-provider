@@ -48,12 +48,12 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     override fun doWork(): Result {
         return runBlocking {
-            sync(ObjectBox.server.all)
+            sync(servers = ObjectBox.server.all)
         }
     }
 
-    private suspend fun sync(credential: MutableList<JellyfinServer>): Result {
-        if (credential.isEmpty()) {
+    private suspend fun sync(servers: List<JellyfinServer>): Result {
+        if (servers.isEmpty()) {
             logcat(LogPriority.ERROR) {
                 "some of the credential not found"
             }
@@ -61,9 +61,9 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
         }
 
         setProgressAsync(
-            SyncTaskProgress(-1, credential.size).toWorkData()
+            SyncTaskProgress(-1, servers.size).toWorkData()
         )
-        credential.forEachIndexed { index, c ->
+        servers.forEachIndexed { index, c ->
             logcat {
                 "syncing server: ${c.info}"
             }
@@ -74,7 +74,7 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
                     PROGRESS_NOTIFICATION_ID,
                     notificationBuilder
                         .setProgress(total, proceed, false)
-                        .setContentTitle("[${index + 1}/${credential.size}] Syncing Database ${c.info}")
+                        .setContentTitle("[${index + 1}/${servers.size}] Syncing Database ${c.info}")
                         .setContentText(text)
                         .build()
                 )

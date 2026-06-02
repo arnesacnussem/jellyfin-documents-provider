@@ -81,7 +81,12 @@ class FileByteReadChannelRandomAccess(
             if (channel!!.availableForPosition(start)) {
                 return channel!!
             } else {
-                val stream = runBlocking { fileStreamFactory(start, null) }
+                val stream = try {
+                    runBlocking { fileStreamFactory(start, null) }
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR) { "Failed to create stream: ${e.message}" }
+                    throw RuntimeException("Failed to open stream", e)
+                }
                 channel?.close()
                 channel = FileByteReadChannel(
                     stream.channel,
@@ -90,7 +95,12 @@ class FileByteReadChannelRandomAccess(
                 )
             }
         } else {
-            val stream = runBlocking { fileStreamFactory(start, null) }
+            val stream = try {
+                runBlocking { fileStreamFactory(start, null) }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR) { "Failed to create stream: ${e.message}" }
+                throw RuntimeException("Failed to open stream", e)
+            }
             channel = FileByteReadChannel(
                 stream.channel,
                 cache,
@@ -133,7 +143,12 @@ class FileByteReadChannel(
     fun read(range: LongRange, data: ByteArray, dataOffset: Int): Int {
         val size: Int = min((range.last - range.first), channelRange.last - currentPosition).toInt()
         val buffer = ByteArray(size)
-        runBlocking { channel.readFully(buffer, 0, size) }
+        try {
+            runBlocking { channel.readFully(buffer, 0, size) }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to read from channel: ${e.message}" }
+            return -1
+        }
 
         cacheFile.write(range.first, buffer)
         buffer.copyInto(data, dataOffset, 0, buffer.size)

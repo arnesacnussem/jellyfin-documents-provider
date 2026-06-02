@@ -2,9 +2,9 @@ name: Build APK
 
 on:
   push:
-    branches: [ "thesecondchance" ]
+    branches: [ "main", "thesecondchance" ]
   pull_request:
-    branches: [ "thesecondchance" ]
+    branches: [ "main", "thesecondchance" ]
 
 jobs:
   build:
@@ -22,10 +22,12 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew build assemble
+        run: ./gradlew assembleDebug
 
       - uses: r0adkll/sign-android-release@v1
         name: Sign app APK
+        # Signing should be skipped for PRs or non-main branches
+        if: github.ref == 'refs/heads/main'
         # ID used to access action output
         id: sign_debug
         with:

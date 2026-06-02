@@ -42,9 +42,6 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -91,5 +88,6 @@ dependencies {
 
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.objectbox.android.objectbrowser)
+    implementation(libs.androidx.security.crypto)
 }
 apply(plugin = "io.objectbox")

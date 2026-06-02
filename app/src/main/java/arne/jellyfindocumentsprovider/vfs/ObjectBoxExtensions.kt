@@ -30,14 +30,13 @@ fun Box<VirtualFile>.countByServer(server: Long) = query {
 
 fun Box<JellyfinServer>.findByUUID(uuid: String) = query {
     equal(JellyfinServer_.uuid, uuid, StringOrder.CASE_SENSITIVE)
-}.findFirst() ?: throw RuntimeException("Server with UUID $uuid not found")
+}.findFirst()
 
 fun Box<JellyfinServer>.findByLibraryId(id: String) = all.find { it.library.containsKey(id) }
-    ?: throw RuntimeException("Server with libraryId $id not found")
 
 fun Box<VirtualFile>.findByDocumentId(documentId: String) = query {
     equal(VirtualFile_.documentId, documentId, StringOrder.CASE_SENSITIVE)
-}.findFirst() ?: throw RuntimeException("File with documentId=$documentId not found")
+}.findFirst()
 
 fun Box<CacheInfo>.getOrCreate(vf: VirtualFile, path: String): CacheInfo {
     return query {

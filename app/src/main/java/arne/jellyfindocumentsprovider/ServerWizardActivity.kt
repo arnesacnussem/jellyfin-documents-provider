@@ -16,9 +16,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
@@ -46,7 +44,8 @@ class ServerWizardActivity : ComponentActivity() {
     @Composable
     fun Content() {
         val navController = rememberNavController()
-        var currentView by remember { mutableStateOf("server-info") }
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
         val viewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current) {
             "No ViewModelStoreOwner was provided via LocalViewModelStoreOwner"
         }
@@ -55,15 +54,12 @@ class ServerWizardActivity : ComponentActivity() {
             topBar = {
                 TopAppBar(
                     title = {
-                        when (currentView) {
-                            "server-info" -> {
-                                Text("Add Server - Server Info")
-                            }
-
-                            "library-selection" -> {
-                                Text("Add Server - Library Selection")
-                            }
+                        val title = when (currentRoute) {
+                            "ServerInfo" -> "Add Server - Server Info"
+                            "LibrarySelection" -> "Add Server - Library Selection"
+                            else -> "Add Server"
                         }
+                        Text(title)
                     }
                 )
             }
@@ -74,7 +70,6 @@ class ServerWizardActivity : ComponentActivity() {
                 modifier = Modifier
                     .padding(innerPadding)
                     .padding(horizontal = 16.dp)
-                    .fillMaxWidth()
                     .fillMaxWidth(),
                 enterTransition = {
                     slideInHorizontally(
@@ -103,7 +98,6 @@ class ServerWizardActivity : ComponentActivity() {
                     ) {
                         ServerInfoScreen(next = {
                             navController.navigate(LibrarySelection)
-                            currentView = "library-selection"
                         })
                     }
                 }
