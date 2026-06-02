@@ -4,6 +4,7 @@ import arne.jellyfindocumentsprovider.hacks.short
 import arne.jellyfindocumentsprovider.vfs.CacheInfo
 import arne.jellyfindocumentsprovider.vfs.FileStreamFactory
 import arne.jellyfindocumentsprovider.vfs.JellyfinAccessor
+import arne.jellyfindocumentsprovider.vfs.JellyfinApi
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
 import arne.jellyfindocumentsprovider.vfs.getOrCreate
@@ -81,34 +82,39 @@ class FileByteReadChannelRandomAccess(
             if (channel!!.availableForPosition(start)) {
                 return channel!!
             } else {
-                val stream = try {
-                    runBlocking { fileStreamFactory(start, null) }
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR) { "Failed to create stream: ${e.message}" }
-                    throw RuntimeException("Failed to open stream", e)
-                }
+                val stream = openStream(start)
                 channel?.close()
                 channel = FileByteReadChannel(
                     stream.channel,
                     cache,
-                    stream.range!!
+                    effectiveRange(start, stream)
                 )
             }
         } else {
-            val stream = try {
-                runBlocking { fileStreamFactory(start, null) }
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "Failed to create stream: ${e.message}" }
-                throw RuntimeException("Failed to open stream", e)
-            }
+            val stream = openStream(start)
             channel = FileByteReadChannel(
                 stream.channel,
                 cache,
-                stream.range!!
+                effectiveRange(start, stream)
             )
         }
 
         return channel!!
+    }
+
+    private fun openStream(start: Long): JellyfinApi.Stream = try {
+        runBlocking { fileStreamFactory(start, null) }
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Failed to create stream: ${e.message}" }
+        throw RuntimeException("Failed to open stream", e)
+    }
+
+    private fun effectiveRange(start: Long, stream: JellyfinApi.Stream): LongRange {
+        return stream.range ?: if (stream.length > 0) {
+            start..(start + stream.length - 1)
+        } else {
+            start..Long.MAX_VALUE
+        }
     }
 
     override fun close() {

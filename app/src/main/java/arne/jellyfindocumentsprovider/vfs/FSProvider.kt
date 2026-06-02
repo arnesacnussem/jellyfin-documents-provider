@@ -116,7 +116,7 @@ object FSProvider {
             if (doc is VPath.File) {
                 val vf = virtualFile.findByDocumentId(doc.id) ?: return null
                 val server = vf.server.target.asAccessor(this@getAudioStreamFactory)
-                val fsf = runBlocking { server.getAudioFileStreamFactory(doc) }
+                val fsf = runBlocking { server.getAudioStreamFactory(doc.id, bps ?: -1) }
                 return Triple(fsf, vf, bps ?: -1)
             } else null
         }

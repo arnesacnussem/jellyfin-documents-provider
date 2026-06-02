@@ -42,6 +42,8 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
         accessToken = credential.token,
     )
 
+    private val ktorClient = io.ktor.client.HttpClient()
+
     /**
      * get all user libraries
      */
@@ -150,7 +152,6 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
 
     override fun getDownloadStreamFactory(itemId: String): FileStreamFactory {
         val url = api.libraryApi.getDownloadUrl(itemId.toUUID())
-        val ktorClient = io.ktor.client.HttpClient()
         return { start, _ ->
             ktorClient.get(url) {
                 with(api) {
