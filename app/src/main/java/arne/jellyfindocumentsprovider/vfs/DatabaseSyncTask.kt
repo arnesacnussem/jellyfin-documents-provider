@@ -81,19 +81,23 @@ class DatabaseSyncTask(
         repos.virtualFile.findAll().groupBy { it.albumId }.forEach { (album, items) ->
             if (album == null) {
                 items.forEach {
+                    val tc = ThumbCache()
+                    repos.thumbCache.put(tc)
                     repos.virtualFile.put(it.apply {
-                        it.thumbCache.target = ThumbCache()
+                        it.thumbCache.target = tc
                     })
                 }
                 return@forEach
             }
             val name = nameMap[album] ?: return@forEach
             val libId = items.first().libId
+            val tc = ThumbCache()
+            repos.thumbCache.put(tc)
             repos.albumInfo.put(
                 AlbumInfo(
                     uuid = album, name = name, libId = libId
                 ).apply {
-                    thumbCache.target = ThumbCache()
+                    thumbCache.target = tc
                 }
             )
         }

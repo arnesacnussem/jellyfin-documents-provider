@@ -115,7 +115,9 @@ class DocumentsProvider : DocumentsProvider() {
     ): AssetFileDescriptor? {
         logcat { "openDocumentThumbnail(${documentId.short}): sizeHint = $sizeHint" }
         val vPath = documentId.toVPath() ?: return null
-        return providerContext.thumbnailFromCacheOrRemote(vPath, sizeHint)
+        val thumbData = providerContext.thumbnailFromCacheOrRemote(vPath, sizeHint)
+        logcat(LogPriority.DEBUG) { "openDocumentThumbnail: result from FSProvider = ${thumbData != null} (size=${thumbData?.size ?: 0})" }
+        return thumbData
             ?.let { data ->
                 MemoryFileFD(data).use { mf ->
                     ParcelFileDescriptor.dup(mf.fd).use {
