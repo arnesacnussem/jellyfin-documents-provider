@@ -1,8 +1,10 @@
 package arne.jellyfindocumentsprovider.vfs
 
+import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
+import arne.jellyfindocumentsprovider.common.StatusEventManager
+import logcat.LogPriority
 import arne.jellyfindocumentsprovider.data.AppRepos
 import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toVirtualFile
-import kotlinx.coroutines.runBlocking
 import logcat.logcat
 import org.jellyfin.sdk.model.api.BaseItemDto
 class DatabaseSyncTask(
@@ -14,9 +16,14 @@ class DatabaseSyncTask(
         batchSize: Int = 1000,
         onProgress: (text: String, current: Int, currentTotal: Int) -> Unit
     ) {
+        val syncId = credential.uuid
+        StatusEventManager.startSync(syncId, "[${credential.name}] starting sync...")
+
         logcat {
             "[${credential.name}] syncing database for ${credential.info}"
         }
+        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] syncing database for ${credential.info}")
+
         onProgress("[1/3 getting total items to sync...]", 0, -1)
         val libraryTotal = credential.library.keys.associateWith {
             api.queryAudioItems(it, limit = 0)?.totalRecordCount ?: 0
@@ -25,6 +32,8 @@ class DatabaseSyncTask(
         logcat {
             "[${credential.name}] total items to sync: ${libraryTotal.size}"
         }
+        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] total items to sync: ${libraryTotal.values.sum()}")
+
         val total = libraryTotal.values.sum()
         var proceed = 0
         onProgress("[1/3 getting total items to sync...$total]", 0, total)
@@ -36,36 +45,52 @@ class DatabaseSyncTask(
             logcat {
                 "[${credential.name}] syncing library: $libId"
             }
+            InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] syncing library: $libId ($libTotal items)")
 
-            // cleanup
+            val fetchedItems = mutableListOf<BaseItemDto>()
+            val fetchedAll = fetchItemsInBatches(libId = libId,
+                batchSize = batchSize,
+                totalItems = libTotal,
+                onFetch = { items ->
+                    fetchedItems += items
+                    proceed += items.size
+                    onProgress(
+                        "2/3 syncing library: $libId ...",
+                        proceed,
+                        total
+                    )
+                    val pct = if (total > 0) proceed.toFloat() / total else 0f
+                    StatusEventManager.updateSync(syncId, "[${credential.name}] syncing $proceed/$total", pct)
+                    logcat {
+                        "[${credential.name}] syncing library: $libId ... $proceed/$total"
+                    }
+                })
+
+            if (!fetchedAll) {
+                logcat(LogPriority.ERROR) {
+                    "[${credential.name}] failed to fetch all items for library $libId; keeping existing data"
+                }
+                InMemoryLogBuffer.log(
+                    LogPriority.ERROR,
+                    "DatabaseSyncTask",
+                    "[${credential.name}] failed to fetch all items for library $libId; keeping existing data"
+                )
+                return@forEach
+            }
+
             repos.virtualFile.removeByLibId(libId)
             repos.albumInfo.removeByLibId(libId)
-
-            // fetch
-            runBlocking {
-                fetchItemsInBatches(libId = libId,
-                    batchSize = batchSize,
-                    totalItems = libTotal,
-                    onFetch = { items ->
-                        repos.virtualFile.put(*items.map {
-                            it.toVirtualFile(credential, libId)
-                        }.toTypedArray())
-                        proceed += items.size
-                        onProgress(
-                            "2/3 syncing library: $libId ...",
-                            proceed,
-                            total
-                        )
-                        logcat {
-                            "[${credential.name}] syncing library: $libId ... $proceed/$total"
-                        }
-                    })
-            }
+            repos.virtualFile.put(*fetchedItems.map {
+                it.toVirtualFile(credential, libId)
+            }.toTypedArray())
         }
 
         logcat {
             "[${credential.name}] synced libraries, processing album info"
         }
+        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] processing album info...")
+        StatusEventManager.updateSync(syncId, "[${credential.name}] processing album info...", 1f)
+
         onProgress("3/3 processing album info...", 0, -1)
 
         // Ensure ThumbCaches exist for all newly synced items, reusing cached thumbnail data
@@ -74,6 +99,8 @@ class DatabaseSyncTask(
         logcat {
             "[${credential.name}] processed album info"
         }
+        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] sync complete")
+        StatusEventManager.finishSync(syncId)
     }
 
     /**
@@ -102,14 +129,12 @@ class DatabaseSyncTask(
      */
     private suspend fun ensureThumbCaches(existingThumbCaches: Map<String, ThumbCache>) {
         val nameMap = mutableMapOf<String, String>()
-        runBlocking {
-            repos.virtualFile.findAll().groupBy { it.albumId }.forEach { (album, items) ->
-                if (album != null) {
-                    val name = items.firstOrNull { it.album != null }?.name
-                        ?: api.getItemNameById(album)
-                    if (name != null) {
-                        nameMap[album] = name
-                    }
+        repos.virtualFile.findAll().groupBy { it.albumId }.forEach { (album, items) ->
+            if (album != null) {
+                val name = items.firstOrNull { it.album != null }?.name
+                    ?: api.getItemNameById(album)
+                if (name != null) {
+                    nameMap[album] = name
                 }
             }
         }
@@ -144,7 +169,7 @@ class DatabaseSyncTask(
         totalItems: Int,
         libId: String,
         onFetch: (List<BaseItemDto>) -> Unit,
-    ) {
+    ): Boolean {
         val numberOfBatches = (totalItems + batchSize - 1) / batchSize
 
         for (batch in 0 until numberOfBatches) {
@@ -154,8 +179,9 @@ class DatabaseSyncTask(
             if (items != null) {
                 onFetch(items)
             } else {
-                break
+                return false
             }
         }
+        return true
     }
 }
