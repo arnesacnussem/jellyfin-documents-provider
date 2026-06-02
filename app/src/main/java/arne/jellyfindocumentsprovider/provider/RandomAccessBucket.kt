@@ -1,5 +1,8 @@
 package arne.jellyfindocumentsprovider.provider
 
+import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
+import arne.jellyfindocumentsprovider.common.StatusEventManager
+import arne.jellyfindocumentsprovider.hacks.readable
 import arne.jellyfindocumentsprovider.hacks.short
 import arne.jellyfindocumentsprovider.vfs.FileStreamFactory
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
@@ -16,42 +19,66 @@ object RandomAccessBucket {
     private val mapper = HashMap<String, RandomAccess>()
     private val refCnt = HashMap<String, Int>()
 
-    fun proxy(fsf: FileStreamFactory, vf: VirtualFile, bitrate: Int) =
-        URLProxyFileDescriptorCallback(getRA(fsf, vf, bitrate)) {
-            releaseRA(vf.documentId)
+    fun proxy(fsf: FileStreamFactory, vf: VirtualFile, bitrate: Int, traceId: String, onReleased: () -> Unit = {}) =
+        URLProxyFileDescriptorCallback(getRA(fsf, vf, bitrate, traceId)) {
+            try {
+                releaseRA(vf.documentId)
+            } finally {
+                onReleased()
+            }
         }
 
-    private fun getRA(fsf: FileStreamFactory, vf: VirtualFile, bitrate: Int): RandomAccess {
+    private fun getRA(fsf: FileStreamFactory, vf: VirtualFile, bitrate: Int, traceId: String): RandomAccess {
         val key = vf.documentId
         synchronized(this) {
-            refCnt[key] = refCnt.getOrDefault(key, 0) + 1
-            if (!mapper.containsKey(key))
-                mapper[key] = newBufferedRA(fsf, vf, bitrate)
+            val ra = mapper[key]
+            if (ra != null) {
+                refCnt[key] = refCnt.getOrDefault(key, 0) + 1
+                logcat(LogPriority.DEBUG) { "get(${key.short}): refCnt = ${refCnt[key]}" }
+                return ra
+            }
+        }
 
-            logcat(LogPriority.DEBUG) { "get(${key.short}): refCnt = ${refCnt[key]}" }
-            return mapper[key]!!
+        val newRA = newBufferedRA(fsf, vf, bitrate, traceId)
+        synchronized(this) {
+            val existing = mapper[key]
+            if (existing != null) {
+                newRA.close()
+                refCnt[key] = refCnt.getOrDefault(key, 0) + 1
+                logcat(LogPriority.DEBUG) { "get(${key.short}): refCnt = ${refCnt[key]}" }
+                return existing
+            }
+            mapper[key] = newRA
+            refCnt[key] = 1
+            StatusEventManager.startNetwork(key, "Streaming ${vf.name}")
+            InMemoryLogBuffer.log(LogPriority.INFO, "Network", "Start streaming ${vf.name} (${vf.size.readable})")
+            logcat(LogPriority.DEBUG) { "get(${key.short}): created [$traceId]" }
+            return newRA
         }
     }
 
     private fun releaseRA(key: String) {
         synchronized(this) {
-            val after = refCnt.getOrDefault(key, 0) - 1
+            val current = refCnt.getOrDefault(key, 0)
+            val after = current - 1
+            logcat(LogPriority.INFO) { "release(${key.short}): refCnt $current → $after" }
             if (after <= 0) {
                 refCnt.remove(key)
                 val remove = mapper.remove(key)
                 remove?.close()
+                StatusEventManager.finishNetwork(key)
+                InMemoryLogBuffer.log(LogPriority.INFO, "Network", "Stop streaming $key")
             } else {
                 refCnt[key] = after
             }
-
-            logcat(LogPriority.DEBUG) { "release(${key.short}): refCnt = $after" }
         }
     }
 
     private fun newBufferedRA(
         fsf: FileStreamFactory,
         vf: VirtualFile,
-        bitrate: Int
+        bitrate: Int,
+        traceId: String,
     ) =
         FileByteReadChannelRandomAccess(
             virtualFile = vf,
@@ -59,6 +86,6 @@ object RandomAccessBucket {
             file = tempFileRoot.resolve(vf.documentId).toFile().apply {
                 createNewFile()
             },
+            traceId = traceId,
         )
 }
-
