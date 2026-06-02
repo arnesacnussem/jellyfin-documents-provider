@@ -45,15 +45,6 @@ sealed class VPath {
         is File -> parent
     }
 
-    fun tryResolveName(): String? = with(ObjectBox) {
-        when (this@VPath) {
-            is User -> server.findByUUID(id)?.let { "${it.name}@${it.serverName}" }
-            is Library -> server.findByLibraryId(id)?.library?.get(id)
-            is Album -> albumInfo.findAlbumByUUID(id).firstOrNull()?.name
-            is File -> virtualFile.findByDocumentId(id)?.name
-        }
-    }
-
     data class User(val userId: String) : VPath() {
         val parent get() = null
 

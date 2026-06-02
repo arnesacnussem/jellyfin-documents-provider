@@ -28,8 +28,6 @@ import arne.jellyfindocumentsprovider.vfs.FSProvider
 import arne.jellyfindocumentsprovider.vfs.FSProvider.getAudioStreamFactory
 import arne.jellyfindocumentsprovider.vfs.FSProvider.thumbnailFromCacheOrRemote
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
-import arne.jellyfindocumentsprovider.vfs.asAndroidMatrixCursor
-import arne.jellyfindocumentsprovider.vfs.toProjection
 import arne.jellyfindocumentsprovider.vfs.toVPath
 import logcat.LogPriority
 import logcat.logcat

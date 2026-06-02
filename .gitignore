@@ -8,3 +8,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+.slim/deepwork/
+/app/objectbox/
+/app/test-*/
+/app/*.so
+.kotlin/
+.opencode/

@@ -1,8 +1,8 @@
 package arne.jellyfindocumentsprovider
 
 import android.app.Application
+import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.provider.RandomAccessBucket
-import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
@@ -21,7 +21,7 @@ class Application : Application() {
         if (!isInitialized) {
             isInitialized = true
             LogcatLogger.install(AndroidLogcatLogger(LogPriority.VERBOSE))
-            ObjectBox.init(this)
+            AppDependencies.init(this)
             RandomAccessBucket.init(applicationContext.cacheDir.toPath())
         }
     }

@@ -33,9 +33,10 @@ import org.jellyfin.sdk.model.api.ItemSortBy
 import org.jellyfin.sdk.model.api.SortOrder
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.model.serializer.toUUID
+import arne.jellyfindocumentsprovider.vfs.JellyfinApi.Stream
 import java.io.ByteArrayOutputStream
 
-class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
+class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : JellyfinApi {
     private val api: ApiClient = createJellyfin(ctx).createApi(
         baseUrl = credential.url,
         accessToken = credential.token,
@@ -55,8 +56,8 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
         }
     }
 
-    suspend fun queryAudioItems(
-        parent: String, startIndex: Int = 0, limit: Int = 100
+    override suspend fun queryAudioItems(
+        parentId: String, startIndex: Int, limit: Int
     ): BaseItemDtoQueryResult? {
         return try {
             api.itemsApi.getItems(
@@ -75,7 +76,7 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
                     imageTypeLimit = 1,
                     enableImageTypes = setOf(ImageType.PRIMARY),
                     limit = limit,
-                    parentId = parent.toUUID()
+                    parentId = parentId.toUUID()
                 )
             ).content
         } catch (e: Exception) {
@@ -84,13 +85,13 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
         }
     }
 
-    suspend fun downloadThumbnail(uuid: String, w: Int? = 250, h: Int? = 250): ByteArray? {
+    override suspend fun downloadThumbnail(itemId: String, width: Int?, height: Int?): ByteArray? {
         try {
             val req = api.imageApi.getItemImage(
-                uuid.toUUID(),
+                itemId.toUUID(),
                 ImageType.PRIMARY,
-                fillWidth = w,
-                fillHeight = h,
+                fillWidth = width,
+                fillHeight = height,
                 quality = 96
             )
 
@@ -101,50 +102,54 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
             return req.content.readAllToByteArray()
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) {
-                "unable to get thumbnail for $uuid " +
+                "unable to get thumbnail for $itemId " +
                         (e.message ?: "Error querying Jellyfin API: ${e.stackTraceToString()}")
             }
             return null
         }
     }
 
-    suspend fun streamThumbnail(document: String, w: Int? = 250, h: Int? = 250) =
+    override suspend fun streamThumbnail(itemId: String, width: Int?, height: Int?) =
         try {
             api.imageApi.getItemImage(
-                document.toUUID(),
+                itemId.toUUID(),
                 ImageType.PRIMARY,
-                fillWidth = w,
-                fillHeight = h,
+                fillWidth = width,
+                fillHeight = height,
                 quality = 96
             ).toStream(Stream.Type.FILE)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) {
-                "unable to stream thumbnail for $document " +
+                "unable to stream thumbnail for $itemId " +
                         (e.message ?: "Error querying Jellyfin API: ${e.stackTraceToString()}")
             }
             null
         }
 
-    suspend fun getItemNameByUUID(id: UUID): String? {
-        logcat(LogPriority.WARN) { "getItemNameByUUID: id=$id" }
-        return api.itemsApi.getItems(ids = setOfNotNull(id)).content.items?.firstOrNull()?.name
+    override suspend fun getItemNameById(id: String): String? {
+        val uuid = id.toUUID()
+        logcat(LogPriority.WARN) { "getItemNameById: id=$uuid" }
+        return api.itemsApi.getItems(ids = setOfNotNull(uuid)).content.items?.firstOrNull()?.name
     }
 
+    suspend fun getItemNameByUUID(id: UUID): String? =
+        getItemNameById(id.asString())
 
-    suspend fun getAudioStreamFactory(
-        doc: VPath,
-        bps: Int,
-    ): FileStreamFactory =
-        { start: Long, _: Long? ->
+
+    override suspend fun getAudioStreamFactory(itemId: String, bps: Int): FileStreamFactory =
+        { start, _ ->
             api.audioApi.getAudioStream(
-                doc.uuid,
+                itemId.toUUID(),
                 startTimeTicks = start,
                 audioBitRate = bps
             ).toStream(Stream.Type.AUDIO_STREAM)
         }
 
-    fun getAudioFileStreamFactory(id: VPath): FileStreamFactory {
-        val url = api.libraryApi.getDownloadUrl(id.uuid)
+    suspend fun getAudioStreamFactory(doc: VPath, bps: Int): FileStreamFactory =
+        getAudioStreamFactory(doc.id, bps)
+
+    override fun getDownloadStreamFactory(itemId: String): FileStreamFactory {
+        val url = api.libraryApi.getDownloadUrl(itemId.toUUID())
         val ktorClient = io.ktor.client.HttpClient()
         return { start, _ ->
             ktorClient.get(url) {
@@ -185,6 +190,9 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
 
         }
     }
+
+    fun getAudioFileStreamFactory(id: VPath): FileStreamFactory =
+        getDownloadStreamFactory(id.id)
 
 
     data class ServerInfo(
@@ -233,17 +241,6 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
         }
     }
 
-    data class Stream(
-        val channel: ByteReadChannel,
-        val length: Long,
-        val type: Type,
-        val range: LongRange?
-    ) {
-        enum class Type {
-            FILE, AUDIO_STREAM
-        }
-    }
-
     private fun Response<ByteReadChannel>.toStream(type: Stream.Type): Stream {
         logcat(LogPriority.DEBUG) {
             "response status=${this.status}, headers: ${this.headers}"
@@ -272,5 +269,3 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
             return LongRange(start.toLong(), end.toLong())
         }
 }
-
-typealias FileStreamFactory = suspend (start: Long, end: Long?) -> JellyfinAccessor.Stream

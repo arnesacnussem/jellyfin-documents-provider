@@ -45,6 +45,7 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/*.md"
         }
     }
 }
@@ -89,5 +90,9 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.objectbox.android.objectbrowser)
     implementation(libs.androidx.security.crypto)
+
+    testImplementation(libs.mockk)
+    androidTestImplementation(libs.mockk.android)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 apply(plugin = "io.objectbox")
