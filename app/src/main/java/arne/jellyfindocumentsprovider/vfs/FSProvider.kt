@@ -68,8 +68,8 @@ object FSProvider {
                 .firstOrNull()?.thumbCache
 
         logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc=${tc}, tc.target=${tc?.target}, notExists=${tc?.target?.notExists}" }
-        if (tc == null || tc.target.notExists) {
-            logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc null or notExists, returning null" }
+        if (tc == null) {
+            logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc null, returning null" }
             return null
         }
 
@@ -78,17 +78,19 @@ object FSProvider {
         return tc.target.data
             ?: runBlocking {
                 try {
-                    vf.server.target.asAccessor(this@thumbnailFromCacheOrRemote)
+                    val data = vf.server.target.asAccessor(this@thumbnailFromCacheOrRemote)
                         .downloadThumbnail(
                             itemId = uuid,
                             width = sizeHint?.x,
                             height = sizeHint?.y
-                        ).also {
-                            tc.target.update {
-                                this.data = it
-                                this.checkedServer = true
-                            }
+                        )
+                    if (data != null) {
+                        tc.target.update {
+                            this.data = data
+                            this.checkedServer = true
                         }
+                    }
+                    data
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR) { "Failed to download thumbnail for $uuid: ${e.message}" }
                     null
@@ -122,7 +124,7 @@ object FSProvider {
             if (doc is VPath.File) {
                 val vf = virtualFile.findByDocumentId(doc.id) ?: return null
                 val server = vf.server.target.asAccessor(this@getAudioStreamFactory)
-                val fsf = runBlocking { server.getAudioStreamFactory(doc.id, bps ?: -1) }
+                val fsf = runBlocking { server.getAudioFileStreamFactory(doc) }
                 return Triple(fsf, vf, bps ?: -1)
             } else null
         }

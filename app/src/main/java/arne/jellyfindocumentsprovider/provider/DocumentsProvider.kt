@@ -120,9 +120,9 @@ class DocumentsProvider : DocumentsProvider() {
         return thumbData
             ?.let { data ->
                 MemoryFileFD(data).use { mf ->
-                    ParcelFileDescriptor.dup(mf.fd).use {
-                        return AssetFileDescriptor(it, 0, data.size.toLong())
-                    }
+                    AssetFileDescriptor(
+                        ParcelFileDescriptor.dup(mf.fd), 0, data.size.toLong()
+                    )
                 }
             }
     }
