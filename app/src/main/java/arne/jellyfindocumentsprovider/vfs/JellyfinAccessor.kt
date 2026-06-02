@@ -42,7 +42,13 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
         accessToken = credential.token,
     )
 
-    private val ktorClient = io.ktor.client.HttpClient()
+    private val ktorClient = io.ktor.client.HttpClient {
+        install(io.ktor.client.plugins.HttpTimeout) {
+            requestTimeoutMillis = 30_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 60_000
+        }
+    }
 
     /**
      * get all user libraries
