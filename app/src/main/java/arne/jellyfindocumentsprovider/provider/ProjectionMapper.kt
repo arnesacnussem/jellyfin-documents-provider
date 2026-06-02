@@ -1,5 +1,6 @@
 package arne.jellyfindocumentsprovider.provider
 
+import android.database.Cursor
 import android.database.MatrixCursor
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
@@ -110,13 +111,18 @@ fun Array<String>?.toProjection(): Array<String> {
 fun List<List<Pair<String, Any?>>>.asAndroidMatrixCursor() =
     this.asAndroidMatrixCursor(flatten().map { it.first }.toSet().toTypedArray())
 
-fun List<List<Pair<String, Any?>>>.asAndroidMatrixCursor(projections: Array<String>?) =
-    MatrixCursor(
-        projections.toProjection()
-    ).also { c ->
-        forEach {
-            c.newRow().also { row ->
-                it.forEach { (key, value) -> row.add(key, value) }
+fun List<List<Pair<String, Any?>>>.asAndroidMatrixCursor(projections: Array<String>?): Cursor {
+    val cols = projections.toProjection()
+    return MatrixCursor(cols).also { c ->
+        val colSet = cols.toSet()
+        forEach { row ->
+            c.newRow().also { rowBuilder ->
+                row.forEach { (key, value) ->
+                    if (key in colSet) {
+                        rowBuilder.add(key, value)
+                    }
+                }
             }
         }
     }
+}

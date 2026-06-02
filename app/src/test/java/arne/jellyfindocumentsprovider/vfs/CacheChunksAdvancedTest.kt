@@ -63,10 +63,10 @@ class CacheChunksAdvancedTest {
     }
 
     @Test
-    fun offsetInChunksExactEndReturnsNull() {
+    fun offsetInChunksExactEndReturnsRange() {
         val chunks = CacheChunks()
         chunks.add(10L..20L)
-        assertNull(chunks.offsetInChunks(20L)) // end is exclusive
+        assertEquals(10L..20L, chunks.offsetInChunks(20L))
     }
 
     @Test

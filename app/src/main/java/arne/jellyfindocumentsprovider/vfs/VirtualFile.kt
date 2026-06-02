@@ -2,6 +2,7 @@ package arne.jellyfindocumentsprovider.vfs
 
 import android.webkit.MimeTypeMap
 import io.objectbox.annotation.Entity
+import logcat.logcat
 import io.objectbox.annotation.Id
 import io.objectbox.annotation.Index
 import io.objectbox.relation.ToOne
@@ -51,7 +52,9 @@ data class VirtualFile(
             return VirtualFile(
                 name = name ?: "Unknown",
                 documentId = documentId,
-                mimeType = mediaSource?.container.toMIMEType(),
+                mimeType = (mediaSource?.container ?: container).toMIMEType().also { mime ->
+                    logcat { "toVirtualFile: name=$name container=${mediaSource?.container ?: container} mimeType=$mime" }
+                },
                 displayName = name ?: "Unknown",
                 lastModified = 1000 * (dateCreated?.toEpochSecond(ZoneOffset.UTC) ?: 0),
                 size = mediaSource?.size ?: 0,
