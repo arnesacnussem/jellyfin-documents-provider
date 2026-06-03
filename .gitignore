@@ -8,6 +8,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+/*.bin
+/*.mdb
 .slim/deepwork/
 /app/objectbox/
 /app/test-*/
