@@ -23,4 +23,12 @@ class ObjectBoxCacheInfoRepository(
     }
 
     override fun findAll() = box.all
+
+    override fun delete(id: Long) {
+        box.remove(id)
+    }
+
+    override fun deleteAll() {
+        box.removeAll()
+    }
 }

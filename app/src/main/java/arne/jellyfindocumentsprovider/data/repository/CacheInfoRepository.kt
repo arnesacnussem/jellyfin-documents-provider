@@ -7,4 +7,6 @@ interface CacheInfoRepository {
     fun getOrCreate(vf: VirtualFile, path: String): CacheInfo
     fun put(cacheInfo: CacheInfo)
     fun findAll(): List<CacheInfo>
+    fun delete(id: Long)
+    fun deleteAll()
 }

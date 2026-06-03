@@ -11,4 +11,10 @@ class ObjectBoxThumbCacheRepository(
     }
 
     override fun count() = box.count()
+
+    override fun countWithData() = box.all.count { it.data != null }.toLong()
+
+    override fun deleteAll() {
+        box.removeAll()
+    }
 }
