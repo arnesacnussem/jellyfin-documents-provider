@@ -5,11 +5,9 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
-import androidx.work.workDataOf
+import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.ui.components.ServerListEntryInfo
 import arne.jellyfindocumentsprovider.vfs.DatabaseSyncWorker
-import arne.jellyfindocumentsprovider.vfs.ObjectBox
-import arne.jellyfindocumentsprovider.vfs.countByServer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import logcat.logcat
@@ -28,16 +26,15 @@ class AppViewModel : ViewModel() {
     val progress: StateFlow<Int>
         get() = _progress
 
-
     fun updateServerList() {
-        _servers.value = ObjectBox.server.all.map {
+        _servers.value = AppDependencies.repos.server.findAll().map {
             ServerListEntryInfo(
                 db = it.id,
                 name = it.serverName,
                 url = it.url,
                 user = it.username,
                 id = it.uuid,
-                itemCount = ObjectBox.virtualFile.countByServer(it.id),
+                itemCount = AppDependencies.repos.virtualFile.countByServerId(it.id),
                 libCount = it.library.size
             )
         }
@@ -78,7 +75,7 @@ class AppViewModel : ViewModel() {
     }
 
     fun deleteServer(info: ServerListEntryInfo) {
-        ObjectBox.server.remove(info.db)
+        AppDependencies.repos.server.removeById(info.db)
         updateServerList()
     }
 }

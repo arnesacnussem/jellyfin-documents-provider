@@ -31,6 +31,9 @@ data class CacheInfo(
         get() = isCompleted or chunks.noGapsIn(0 until virtualFile.target.size)
 
     @Transient
+    var persistCallback: ((CacheInfo) -> Unit)? = null
+
+    @Transient
     private var _cacheFile = null as CacheFile?
     val cacheFile: CacheFile
         get() {
@@ -79,6 +82,10 @@ data class CacheInfo(
 
     override fun close() {
         _cacheFile?.close()
-        ObjectBox.cacheInfo.put(this.copy(chunks = cacheFile))
+        if (persistCallback != null) {
+            persistCallback!!(this.copy(chunks = cacheFile))
+        } else {
+            ObjectBox.cacheInfo.put(this.copy(chunks = cacheFile))
+        }
     }
 }

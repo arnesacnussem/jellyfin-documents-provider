@@ -17,7 +17,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -31,7 +30,7 @@ import arne.jellyfindocumentsprovider.common.useNav
 import arne.jellyfindocumentsprovider.ui.serverWizard.LibraryItem
 import arne.jellyfindocumentsprovider.ui.serverWizard.ServerWizardViewModel.Library.Companion.toLibrary
 import arne.jellyfindocumentsprovider.vfs.JellyfinServer
-import arne.jellyfindocumentsprovider.vfs.ObjectBox
+import arne.jellyfindocumentsprovider.data.AppDependencies
 import kotlinx.coroutines.launch
 import logcat.logcat
 
@@ -39,7 +38,9 @@ import logcat.logcat
 @Composable
 @Preview
 fun ServerSetting(id: Long = 0) {
-    val credential by remember { mutableStateOf<JellyfinServer>(ObjectBox.server.get(id)) }
+    val credential = remember {
+        AppDependencies.repos.server.findAll().firstOrNull { it.id == id }
+    } ?: return
     val selection = remember { mutableStateMapOf<String, Boolean>() }
     val context = LocalContext.current
     val nav = useNav()
@@ -76,7 +77,7 @@ fun ServerSetting(id: Long = 0) {
             }, actions = {
                 IconButton(enabled = state.isSuccess, onClick = {
                     coroutineScope.launch {
-                        ObjectBox.server.put(credential.copy(library = if (data.isNullOrEmpty()) credential.library
+                        AppDependencies.repos.server.put(credential.copy(library = if (data.isNullOrEmpty()) credential.library
                         else {
                             data.associate { it.id to it.name }.filter {
                                 selection[it.key] == true

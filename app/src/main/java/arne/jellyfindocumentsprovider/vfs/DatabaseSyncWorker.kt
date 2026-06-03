@@ -48,7 +48,7 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     override fun doWork(): Result {
         return runBlocking {
-            sync(servers = ObjectBox.server.all)
+            sync(servers = arne.jellyfindocumentsprovider.data.AppDependencies.repos.server.findAll())
         }
     }
 
@@ -68,7 +68,11 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 "syncing server: ${c.info}"
             }
 
-            val task = DatabaseSyncTask(c.asAccessor(applicationContext))
+            val task = DatabaseSyncTask(
+                api = c.asAccessor(applicationContext),
+                repos = arne.jellyfindocumentsprovider.data.AppDependencies.repos,
+                credential = c,
+            )
             task.sync { text, proceed, total ->
                 notificationManager.notify(
                     PROGRESS_NOTIFICATION_ID,

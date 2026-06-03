@@ -7,7 +7,7 @@ import arne.jellyfindocumentsprovider.ServerWizardActivity
 import arne.jellyfindocumentsprovider.ui.serverWizard.ServerWizardViewModel.Library.Companion.toLibrary
 import arne.jellyfindocumentsprovider.vfs.JellyfinAccessor.ServerInfo
 import arne.jellyfindocumentsprovider.vfs.JellyfinServer
-import arne.jellyfindocumentsprovider.vfs.ObjectBox
+import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.vfs.asString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,7 +83,7 @@ class ServerWizardViewModel(application: Application) : AndroidViewModel(applica
         val cred = server!!.copy(
             library = libraries.filter { it.checked }.associate { it.id to it.name }
         )
-        ObjectBox.server.put(cred)
+        AppDependencies.repos.server.put(cred)
         (activityCtx as? ServerWizardActivity)?.finish()
     }
 
