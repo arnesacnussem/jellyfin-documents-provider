@@ -71,17 +71,24 @@ class FilesystemService(
         if (tc == null) return null
 
         val uuid = vf.albumId ?: vf.documentId
-        return tc.target.data ?: runBlocking {
+        val thumbCache = tc.target
+        if (thumbCache.notExists) return null
+
+        return thumbCache.data ?: runBlocking {
             try {
                 val api = apiFactory(vf.server.target)
-                val data = api.downloadThumbnail(
-                    itemId = uuid,
-                    width = sizeHint?.x,
-                    height = sizeHint?.y
-                )
-                data?.also {
-                    tc.target.update { this.data = it; this.checkedServer = true }
+                val data = ThumbnailFetchCoordinator.fetch(uuid) {
+                    api.downloadThumbnail(
+                        itemId = uuid,
+                        width = sizeHint?.x,
+                        height = sizeHint?.y
+                    )
                 }
+                thumbCache.update {
+                    checkedServer = true
+                    if (data != null) this.data = data
+                }
+                data
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "Failed to download thumbnail: ${e.message}" }
                 null

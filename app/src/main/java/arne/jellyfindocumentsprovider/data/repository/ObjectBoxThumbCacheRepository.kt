@@ -9,4 +9,6 @@ class ObjectBoxThumbCacheRepository(
     override fun put(thumbCache: ThumbCache) {
         box.put(thumbCache)
     }
+
+    override fun count() = box.count()
 }
