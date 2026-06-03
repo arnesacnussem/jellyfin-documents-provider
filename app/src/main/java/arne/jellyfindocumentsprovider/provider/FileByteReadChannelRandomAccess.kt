@@ -72,25 +72,29 @@ class FileByteReadChannelRandomAccess(
         while (true) {
             val chunk = cache.offsetInChunks(offset)
             if (chunk != null) {
-                val availableEnd = minOf(chunk.last + 1, offset + size)
-                val available = (availableEnd - offset).toInt()
-                if (available > 0) {
-                    val bytesRead = cache.read(offset, available, data)
-                    totalBytesRead += bytesRead
-                    if (offset + bytesRead > maxReadOffset) {
-                        maxReadOffset = offset + bytesRead
-                    }
-                    maybeNotify()
-                    if (waited > 0) {
-                        logcat(LogPriority.INFO) {
-                            "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (waited ${waited}ms, cache chunk ${chunk.first.readable}..${chunk.last.readable})"
+                val canFulfill = chunk.last + 1 >= offset + size
+                val isEof = chunk.last + 1 >= length
+                if (canFulfill || isEof) {
+                    val availableEnd = minOf(chunk.last + 1, offset + size)
+                    val available = (availableEnd - offset).toInt()
+                    if (available > 0) {
+                        val bytesRead = cache.read(offset, available, data)
+                        totalBytesRead += bytesRead
+                        if (offset + bytesRead > maxReadOffset) {
+                            maxReadOffset = offset + bytesRead
                         }
-                    } else {
-                        logcat(LogPriority.VERBOSE) {
-                            "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (cache hit)"
+                        maybeNotify()
+                        if (waited > 0) {
+                            logcat(LogPriority.INFO) {
+                                "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (waited ${waited}ms, cache chunk ${chunk.first.readable}..${chunk.last.readable})"
+                            }
+                        } else {
+                            logcat(LogPriority.VERBOSE) {
+                                "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (cache hit)"
+                            }
                         }
+                        return bytesRead
                     }
-                    return bytesRead
                 }
             }
 
@@ -201,6 +205,9 @@ class FileByteReadChannelRandomAccess(
                     writeCount++
                     bytesThisSegment += n
                     synchronized(lock) { lock.notifyAll() }
+                    if (writeCount % 8L == 0L) {
+                        persistCacheInfo()
+                    }
                     val currentChunk = pos / chunkSize
                     if (currentChunk != nextNotifyChunk) {
                         nextNotifyChunk = currentChunk
@@ -258,6 +265,9 @@ class FileByteReadChannelRandomAccess(
                 writeCount++
                 bytesThisSeg += n
                 synchronized(lock) { lock.notifyAll() }
+                if (writeCount % 8L == 0L) {
+                    persistCacheInfo()
+                }
                 pos += n
             }
             logcat(LogPriority.DEBUG) {
@@ -280,6 +290,14 @@ class FileByteReadChannelRandomAccess(
         }
         cacheInfo.close()
         logcat(LogPriority.INFO) { "[$traceId] RA close() done" }
+    }
+
+    private fun persistCacheInfo() {
+        try {
+            cacheInfo.persistCallback?.invoke(cacheInfo.copy(chunks = cache))
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN) { "[$traceId] persistCacheInfo failed: ${e.message}" }
+        }
     }
 
     private fun maybeNotify() {

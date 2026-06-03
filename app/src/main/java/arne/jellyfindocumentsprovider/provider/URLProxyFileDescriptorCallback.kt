@@ -14,7 +14,9 @@ class URLProxyFileDescriptorCallback(
     }
 
     override fun onRead(offset: Long, size: Int, data: ByteArray): Int {
-        logcat(LogPriority.VERBOSE) { "onRead() called with: offset = ${offset.readable}, size = ${size.readable}" }
+        val randId = (Math.random() * 10000).toInt() // 2char
+        logcat(LogPriority.VERBOSE) { "[$randId] onRead() called with: offset = ${offset.readable}, size = ${size.readable}" }
+        val start = System.currentTimeMillis()
         val read = ra.read(offset, size, data)
         val length = ra.length
         when {
@@ -27,6 +29,10 @@ class URLProxyFileDescriptorCallback(
             read in 1 until size -> logcat(LogPriority.VERBOSE) {
                 "onRead: short read ($read < $size) [requestExtendsEOF=${offset + size >= length}, offset=$offset, total=$length]"
             }
+        }
+
+        logcat(LogPriority.VERBOSE) {
+            "[$randId] onRead: took ${System.currentTimeMillis() - start}ms [offset=$offset, size=$size, total=$length]"
         }
         return if (read <= 0) 0
         else read
