@@ -9,6 +9,7 @@ import arne.jellyfindocumentsprovider.data.repository.ObjectBoxVirtualFileReposi
 import arne.jellyfindocumentsprovider.vfs.FilesystemService
 import arne.jellyfindocumentsprovider.vfs.JellyfinApi
 import arne.jellyfindocumentsprovider.vfs.JellyfinServer
+import arne.jellyfindocumentsprovider.vfs.JellyfinTokenStore
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 
 object AppDependencies {
@@ -25,6 +26,9 @@ object AppDependencies {
             cacheInfo = ObjectBoxCacheInfoRepository(ObjectBox.cacheInfo),
             thumbCache = ObjectBoxThumbCacheRepository(ObjectBox.thumbCache),
         )
+        JellyfinTokenStore.migrate(context, repos.server.findAll()) { server ->
+            repos.server.put(server)
+        }
         apiFactory = { server -> server.asAccessor(context) }
         filesystemService = FilesystemService(repos, apiFactory)
     }
