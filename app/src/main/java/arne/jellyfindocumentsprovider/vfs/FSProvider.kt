@@ -62,13 +62,19 @@ object FSProvider {
 
     fun Context.thumbnailFromCacheOrRemote(doc: VPath, sizeHint: Point?): ByteArray? {
         val vf = ObjectBox.virtualFile.findByDocumentId(doc.id) ?: return null
+        logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: vf found name=${vf.name} documentId=${vf.documentId}" }
         val tc =
             if (vf.albumId == null) vf.thumbCache else ObjectBox.albumInfo.findAlbumByUUID(vf.albumId)
                 .firstOrNull()?.thumbCache
 
-        if (tc == null || tc.target.notExists) return null
+        logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc=${tc}, tc.target=${tc?.target}, notExists=${tc?.target?.notExists}" }
+        if (tc == null || tc.target.notExists) {
+            logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc null or notExists, returning null" }
+            return null
+        }
 
         val uuid = vf.albumId ?: vf.documentId
+        logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: data in cache=${tc.target.data != null}, attempting download for uuid=$uuid" }
         return tc.target.data
             ?: runBlocking {
                 try {
@@ -84,7 +90,7 @@ object FSProvider {
                             }
                         }
                 } catch (e: Exception) {
-                    logcat(LogPriority.ERROR) { "Failed to download thumbnail: ${e.message}" }
+                    logcat(LogPriority.ERROR) { "Failed to download thumbnail for $uuid: ${e.message}" }
                     null
                 }
             }
