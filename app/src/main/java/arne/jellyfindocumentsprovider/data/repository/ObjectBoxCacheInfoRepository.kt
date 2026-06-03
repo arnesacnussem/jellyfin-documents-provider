@@ -21,4 +21,6 @@ class ObjectBoxCacheInfoRepository(
     override fun put(cacheInfo: CacheInfo) {
         box.put(cacheInfo)
     }
+
+    override fun findAll() = box.all
 }
