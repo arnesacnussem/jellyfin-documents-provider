@@ -3,7 +3,9 @@ package arne.jellyfindocumentsprovider.vfs
 import android.content.Context
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentLength
 import io.ktor.utils.io.ByteReadChannel
@@ -39,12 +41,12 @@ import java.io.ByteArrayOutputStream
 class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : JellyfinApi {
     private val api: ApiClient = createJellyfin(ctx).createApi(
         baseUrl = credential.url,
-        accessToken = credential.token,
+        accessToken = JellyfinTokenStore.resolve(ctx, credential),
     )
 
     private val ktorClient = io.ktor.client.HttpClient {
         install(io.ktor.client.plugins.HttpTimeout) {
-            requestTimeoutMillis = 30_000
+            requestTimeoutMillis = io.ktor.client.plugins.HttpTimeout.INFINITE_TIMEOUT_MS
             connectTimeoutMillis = 15_000
             socketTimeoutMillis = 60_000
         }
@@ -158,8 +160,9 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
 
     override fun getDownloadStreamFactory(itemId: String): FileStreamFactory {
         val url = api.libraryApi.getDownloadUrl(itemId.toUUID())
-        return { start, _ ->
-            ktorClient.get(url) {
+        return { start, end ->
+            val rangeValue = if (end != null) "bytes=$start-$end" else "bytes=$start-"
+            val response = ktorClient.prepareGet(url) {
                 with(api) {
                     header(
                         key = HttpHeaders.Accept,
@@ -177,29 +180,59 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
                         )
                     )
 
-                    // range header
                     header(
                         key = HttpHeaders.Range,
-                        value = "bytes=$start-"
+                        value = rangeValue
                     )
                 }
-            }.let {
-                logcat(LogPriority.DEBUG) {
-                    "opened stream for url: $url, headers: ${it.headers}"
-                }
-                Stream(
-                    channel = it.bodyAsChannel(),
-                    length = it.contentLength() ?: -1,
-                    type = Stream.Type.FILE,
-                    range = it.headers[HttpHeaders.ContentRange]?.toRangeHeader()
-                )
+            }.execute()
+            val contentRange = response.headers[HttpHeaders.ContentRange]
+            val contentLength = response.contentLength()
+            logcat(LogPriority.DEBUG) {
+                "DL stream url=$url range=$rangeValue status=${response.status}" +
+                        " contentRange=$contentRange contentLength=$contentLength"
             }
-
+            Stream(
+                channel = response.bodyAsChannel(),
+                length = contentLength ?: -1,
+                type = Stream.Type.FILE,
+                range = contentRange?.toRangeHeader()
+            )
         }
     }
 
     fun getAudioFileStreamFactory(id: VPath): FileStreamFactory =
         getDownloadStreamFactory(id.id)
+
+    fun downloadWithoutRange(itemId: String): FileStreamFactory {
+        val url = api.libraryApi.getDownloadUrl(itemId.toUUID())
+        return { _, _ ->
+            val response = ktorClient.prepareGet(url) {
+                with(api) {
+                    header(HttpHeaders.Accept, HEADER_ACCEPT)
+                    header(HttpHeaders.Authorization, AuthorizationHeaderBuilder.buildHeader(
+                        clientName = clientInfo.name,
+                        clientVersion = clientInfo.version,
+                        deviceId = deviceInfo.id,
+                        deviceName = deviceInfo.name,
+                        accessToken = accessToken
+                    ))
+                }
+            }.execute()
+            val contentRange = response.headers[HttpHeaders.ContentRange]
+            val contentLength = response.contentLength()
+            logcat(LogPriority.DEBUG) {
+                "DL stream url=$url range=NONE status=${response.status}" +
+                        " contentRange=$contentRange contentLength=$contentLength"
+            }
+            Stream(
+                channel = response.bodyAsChannel(),
+                length = contentLength ?: -1,
+                type = Stream.Type.FILE,
+                range = contentRange?.toRangeHeader()
+            )
+        }
+    }
 
 
     data class ServerInfo(
@@ -230,14 +263,17 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
                 )
                 logcat { "user info: ${authResult.user}" }
 
+                val token = authResult.accessToken!!
+                val userId = authResult.user!!.id.asString()
+                JellyfinTokenStore.save(ctx, userId, token)
                 password = ""
                 return JellyfinServer(
                     url = url,
                     serverName = serverPublicInfo.serverName ?: "Unknown Server",
                     library = mapOf(),
-                    token = authResult.accessToken!!,
+                    token = "",
                     username = authResult.user!!.name!!,
-                    uuid = authResult.user!!.id.asString()
+                    uuid = userId
                 )
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) {
