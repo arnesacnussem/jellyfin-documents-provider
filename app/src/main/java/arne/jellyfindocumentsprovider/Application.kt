@@ -1,9 +1,9 @@
 package arne.jellyfindocumentsprovider
 
 import android.app.Application
+import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
 import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.provider.RandomAccessBucket
-import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
 
@@ -20,7 +20,8 @@ class Application : Application() {
     fun initializeIfNeeded() {
         if (!isInitialized) {
             isInitialized = true
-            LogcatLogger.install(AndroidLogcatLogger(LogPriority.VERBOSE))
+            LogcatLogger.install(InMemoryLogBuffer)
+            InMemoryLogBuffer.setUiLogLevel(LogPriority.INFO)
             AppDependencies.init(this)
             RandomAccessBucket.init(applicationContext.cacheDir.toPath())
         }
