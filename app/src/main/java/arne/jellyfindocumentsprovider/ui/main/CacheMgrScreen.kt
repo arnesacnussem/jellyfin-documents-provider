@@ -37,12 +37,15 @@ import androidx.compose.ui.unit.dp
 import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.hacks.readable
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
+import logcat.logcat
 
 data class CacheEntryDisplay(
     val name: String,
     val fileSize: Long,
-    val localLength: Long,
+    val cachedSize: Long,
     val chunks: List<LongRange>,
     val isComplete: Boolean,
 )
@@ -55,28 +58,32 @@ fun CacheMgrScreen() {
     var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val repos = AppDependencies.repos
-            thumbCount = repos.thumbCache.count()
-            val cacheInfos = repos.cacheInfo.findAll()
-            cacheEntries = cacheInfos.mapNotNull { ci ->
-                val vf = repos.virtualFile.findByDocumentId(ci.vfDocId)
-                if (vf != null) {
-                    CacheEntryDisplay(
-                        name = vf.displayName,
-                        fileSize = vf.size,
-                        localLength = ci.localLength,
-                        chunks = ci.chunks.toList(),
-                        isComplete = ci.isCompleted ||
-                            (vf.size > 0 && ci.chunks.noGapsIn(0 until vf.size)),
-                    )
-                } else null
+        while (true) {
+            withContext(Dispatchers.IO) {
+                val repos = AppDependencies.repos
+                thumbCount = repos.thumbCache.count()
+                val cacheInfos = repos.cacheInfo.findAll()
+                cacheEntries = cacheInfos.mapNotNull { ci ->
+                    val vf = repos.virtualFile.findByDocumentId(ci.vfDocId)
+                    if (vf != null) {
+                        val cachedSize = ci.chunks.sumOf { it.last - it.first + 1 }
+                        CacheEntryDisplay(
+                            name = vf.displayName,
+                            fileSize = vf.size,
+                            cachedSize = cachedSize,
+                            chunks = ci.chunks.toList(),
+                            isComplete = ci.isCompleted ||
+                                (vf.size > 0 && ci.chunks.noGapsIn(0 until vf.size)),
+                        )
+                    } else null
+                }
             }
+            isLoading = false
+            delay(2000)
         }
-        isLoading = false
     }
 
-    val totalCacheSize = cacheEntries.sumOf { it.localLength }
+    val totalCacheSize = cacheEntries.sumOf { it.cachedSize }
     val completeCount = cacheEntries.count { it.isComplete }
 
     if (isLoading) {
@@ -190,16 +197,19 @@ fun CacheFileRow(entry: CacheEntryDisplay) {
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Text(
-                    text = entry.fileSize.readable,
+                    text = if (entry.isComplete) entry.fileSize.readable
+                           else "${entry.cachedSize.readable} / ${entry.fileSize.readable}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            CacheBitmap(
-                chunks = entry.chunks,
-                fileSize = entry.fileSize,
-            )
+            if (!entry.isComplete) {
+                Spacer(Modifier.height(6.dp))
+                CacheBitmap(
+                    chunks = entry.chunks,
+                    fileSize = entry.fileSize,
+                )
+            }
         }
     }
 }
