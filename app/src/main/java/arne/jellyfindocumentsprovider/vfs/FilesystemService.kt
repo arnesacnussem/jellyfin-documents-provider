@@ -68,7 +68,7 @@ class FilesystemService(
         val tc = if (vf.albumId == null) vf.thumbCache
             else repos.albumInfo.findAlbumByUUID(vf.albumId).firstOrNull()?.thumbCache
 
-        if (tc == null || tc.target.notExists) return null
+        if (tc == null) return null
 
         val uuid = vf.albumId ?: vf.documentId
         return tc.target.data ?: runBlocking {
