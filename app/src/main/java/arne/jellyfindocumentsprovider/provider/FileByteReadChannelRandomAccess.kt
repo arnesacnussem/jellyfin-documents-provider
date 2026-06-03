@@ -37,7 +37,9 @@ class FileByteReadChannelRandomAccess(
     }
 
     override val length: Long = virtualFile.size
-    private val cacheInfo = ObjectBox.cacheInfo.getOrCreate(virtualFile, file.absolutePath)
+    private val cacheInfo = ObjectBox.cacheInfo.getOrCreate(virtualFile, file.absolutePath).also {
+        it.persistCallback = { ci -> ObjectBox.cacheInfo.put(ci) }
+    }
     private val cache = cacheInfo.cacheFile
 
     private val docId = virtualFile.documentId
@@ -105,7 +107,7 @@ class FileByteReadChannelRandomAccess(
                     "[$traceId] read offset=${offset.readable} size=$size STALLED ${elapsed}ms, primary=${
                         primaryPos.readable
                     }, chunks=${
-                        cache.map { "${it.first.readable}..${it.last.readable}" }
+                        synchronized(cache) { cache.toList().map { "${it.first.readable}..${it.last.readable}" } }
                     }"
                 }
             }
