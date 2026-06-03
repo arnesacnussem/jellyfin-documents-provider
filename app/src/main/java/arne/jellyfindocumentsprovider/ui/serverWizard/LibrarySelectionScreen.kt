@@ -41,9 +41,7 @@ fun LibrarySelectionScreen(viewModel: ServerWizardViewModel = viewModel()) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        coroutineScope.launch(Dispatchers.IO) {
-            viewModel.loadLibraries()
-        }
+        viewModel.loadLibraries()
     }
 
     Box(

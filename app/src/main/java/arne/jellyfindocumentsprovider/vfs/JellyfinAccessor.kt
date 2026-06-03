@@ -215,6 +215,7 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) {
                 )
                 logcat { "user info: ${authResult.user}" }
 
+                password = ""
                 return JellyfinServer(
                     url = url,
                     serverName = serverPublicInfo.serverName ?: "Unknown Server",

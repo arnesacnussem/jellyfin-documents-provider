@@ -35,73 +35,86 @@ class DatabaseSyncTask(
                     "[${accessor.credential.name}] syncing library: $libId"
                 }
 
+                // cleanup
                 store.runInTx {
-                    // cleanup
                     virtualFile.query {
                         equal(VirtualFile_.libId, libId, QueryBuilder.StringOrder.CASE_SENSITIVE)
                     }.remove()
                     albumInfo.query {
                         equal(AlbumInfo_.libId, libId, QueryBuilder.StringOrder.CASE_SENSITIVE)
                     }.remove()
+                }
 
-                    // fetch
-                    runBlocking {
-                        fetchItemsInBatches(libId = libId,
-                            batchSize = batchSize,
-                            totalItems = libTotal,
-                            onFetch = { items ->
+                // fetch
+                runBlocking {
+                    fetchItemsInBatches(libId = libId,
+                        batchSize = batchSize,
+                        totalItems = libTotal,
+                        onFetch = { items ->
+                            store.runInTx {
                                 virtualFile.put(items.map {
                                     it.toVirtualFile(
                                         accessor.credential,
                                         libId
                                     )
                                 })
-                                proceed += items.size
-                                onProgress(
-                                    "2/3 syncing library: $libId ...",
-                                    proceed,
-                                    total
-                                )
-                                logcat {
-                                    "[${accessor.credential.name}] syncing library: $libId ... $proceed/$total"
-                                }
-                            })
-                    }
+                            }
+                            proceed += items.size
+                            onProgress(
+                                "2/3 syncing library: $libId ...",
+                                proceed,
+                                total
+                            )
+                            logcat {
+                                "[${accessor.credential.name}] syncing library: $libId ... $proceed/$total"
+                            }
+                        })
                 }
 
             }
 
-            store.runInTx {
-                runBlocking {
-                    logcat {
-                        "[${accessor.credential.name}] synced libraries, processing album info"
-                    }
-                    onProgress("3/3 processing album info...", 0, -1)
-                    virtualFile.all.groupBy { it.albumId }.forEach { (album, items) ->
-                        if (album == null) {
-                            items.forEach {
-                                virtualFile.put(it.apply {
-                                    it.thumbCache.target = ThumbCache()
-                                })
-                            }
-                            return@forEach
-                        }
-                        val name = items.firstOrNull { it.album != null }?.name
-                            ?: (accessor.getItemNameByUUID(album.toUUID()) ?: return@forEach)
-                        val libId = items.first().libId
-                        albumInfo.put(
-                            AlbumInfo(
-                                uuid = album, name = name, libId = libId
-                            ).apply {
-                                thumbCache.target = ThumbCache()
-                            }
-                        )
-                    }
+            logcat {
+                "[${accessor.credential.name}] synced libraries, processing album info"
+            }
+            onProgress("3/3 processing album info...", 0, -1)
 
-                    logcat {
-                        "[${accessor.credential.name}] processed album info"
+            val nameMap = mutableMapOf<String, String>()
+            runBlocking {
+                virtualFile.all.groupBy { it.albumId }.forEach { (album, items) ->
+                    if (album != null) {
+                        val name = items.firstOrNull { it.album != null }?.name
+                            ?: accessor.getItemNameByUUID(album.toUUID())
+                        if (name != null) {
+                            nameMap[album] = name
+                        }
                     }
                 }
+            }
+
+            store.runInTx {
+                virtualFile.all.groupBy { it.albumId }.forEach { (album, items) ->
+                    if (album == null) {
+                        items.forEach {
+                            virtualFile.put(it.apply {
+                                it.thumbCache.target = ThumbCache()
+                            })
+                        }
+                        return@forEach
+                    }
+                    val name = nameMap[album] ?: return@forEach
+                    val libId = items.first().libId
+                    albumInfo.put(
+                        AlbumInfo(
+                            uuid = album, name = name, libId = libId
+                        ).apply {
+                            thumbCache.target = ThumbCache()
+                        }
+                    )
+                }
+            }
+
+            logcat {
+                "[${accessor.credential.name}] processed album info"
             }
         }
     }

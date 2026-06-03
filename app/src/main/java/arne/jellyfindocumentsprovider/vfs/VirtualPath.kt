@@ -47,10 +47,10 @@ sealed class VPath {
 
     fun tryResolveName(): String? = with(ObjectBox) {
         when (this@VPath) {
-            is User -> server.findByUUID(id).let { "${it.name}@${it.serverName}" }
-            is Library -> server.findByLibraryId(id).library[id]
+            is User -> server.findByUUID(id)?.let { "${it.name}@${it.serverName}" }
+            is Library -> server.findByLibraryId(id)?.library?.get(id)
             is Album -> albumInfo.findAlbumByUUID(id).firstOrNull()?.name
-            is File -> virtualFile.findByDocumentId(id).name
+            is File -> virtualFile.findByDocumentId(id)?.name
         }
     }
 
@@ -140,5 +140,3 @@ sealed class VPath {
 }
 
 fun String?.toVPath() = this?.let { VPath.parse(this) }
-
-fun VPath.isParentOf(other: VPath): Boolean = this.parent() == other

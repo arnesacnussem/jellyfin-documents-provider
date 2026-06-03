@@ -18,7 +18,7 @@ object FSProvider {
     fun getRoots(): List<List<Pair<String, Any?>>> {
         val servers = ObjectBox.server.all
         logcat {
-            "FSProvider.getRoots(): amount of servers = $servers"
+            "FSProvider.getRoots(): amount of servers = ${servers.size}"
         }
         val roots = servers.map {
             val credentialId = VPath.User(it.uuid)
@@ -50,7 +50,8 @@ object FSProvider {
         }
         return with(ObjectBox) {
             when (document) {
-                is VPath.User -> server.findByUUID(document.id).getLibrariesProjection(document)
+                is VPath.User -> server.findByUUID(document.id)?.getLibrariesProjection(document)
+                    ?: emptyList()
                 is VPath.Library -> (virtualFile.findAllByLibIdNotInAlbum(libId = document.id)
                     .map { it.asProjection() } + albumInfo.findAllAlbumByLibId(
                     libId = document.id
@@ -67,34 +68,39 @@ object FSProvider {
     fun getOne(doc: VPath) = with(ObjectBox) {
         listOf(
             when (doc) {
-                is VPath.File -> virtualFile.findByDocumentId(doc.id).asProjection()
+                is VPath.File -> virtualFile.findByDocumentId(doc.id)?.asProjection() ?: emptyList()
                 else -> emptyDirProjection(doc.id, doc.tryResolveName() ?: "")
             }
         )
     }
 
     fun Context.thumbnailFromCacheOrRemote(doc: VPath, sizeHint: Point?): ByteArray? {
-        val vf = ObjectBox.virtualFile.findByDocumentId(doc.id)
+        val vf = ObjectBox.virtualFile.findByDocumentId(doc.id) ?: return null
         val tc =
             if (vf.albumId == null) vf.thumbCache else ObjectBox.albumInfo.findAlbumByUUID(vf.albumId)
-                .first().thumbCache
+                .firstOrNull()?.thumbCache
 
-        if (tc.target.notExists) return null
+        if (tc == null || tc.target.notExists) return null
 
         val uuid = vf.albumId ?: vf.documentId
         return tc.target.data
             ?: runBlocking {
-                vf.server.target.asAccessor(this@thumbnailFromCacheOrRemote)
-                    .downloadThumbnail(
-                        uuid = uuid,
-                        w = sizeHint?.x,
-                        h = sizeHint?.y
-                    ).also {
-                        tc.target.update {
-                            this.data = it
-                            this.checkedServer = true
+                try {
+                    vf.server.target.asAccessor(this@thumbnailFromCacheOrRemote)
+                        .downloadThumbnail(
+                            uuid = uuid,
+                            w = sizeHint?.x,
+                            h = sizeHint?.y
+                        ).also {
+                            tc.target.update {
+                                this.data = it
+                                this.checkedServer = true
+                            }
                         }
-                    }
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR) { "Failed to download thumbnail: ${e.message}" }
+                    null
+                }
             }
     }
 
@@ -103,7 +109,7 @@ object FSProvider {
         return with(ObjectBox) {
             when (doc) {
                 is VPath.File -> {
-                    val vf = virtualFile.findByDocumentId(doc.id)
+                    val vf = virtualFile.findByDocumentId(doc.id) ?: return null
                     val server = vf.server.target.asAccessor(this@streamThumbnail)
                     runBlocking {
                         server.streamThumbnail(
@@ -122,7 +128,7 @@ object FSProvider {
     ): Triple<FileStreamFactory, VirtualFile, Int>? {
         return with(ObjectBox) {
             if (doc is VPath.File) {
-                val vf = virtualFile.findByDocumentId(doc.id)
+                val vf = virtualFile.findByDocumentId(doc.id) ?: return null
                 val server = vf.server.target.asAccessor(this@getAudioStreamFactory)
                 val fsf = runBlocking { server.getAudioFileStreamFactory(doc) }
                 return Triple(fsf, vf, bps ?: -1)
@@ -130,13 +136,6 @@ object FSProvider {
         }
     }
 }
-
-val EMPTY_DIR_PROJECTION = listOf(
-    Document.COLUMN_MIME_TYPE to Document.MIME_TYPE_DIR,
-    Document.COLUMN_SIZE to 0,
-    Document.COLUMN_LAST_MODIFIED to 0,
-    Document.COLUMN_FLAGS to 0
-)
 
 fun emptyDirProjection(id: String, name: String) = listOf(
     Document.COLUMN_DOCUMENT_ID to id,
@@ -198,7 +197,7 @@ fun PowerampExtraInfo.asProjection(waveType: WaveType) = listOfNotNull(
             getFakeWave()
         )
 
-        WaveType.REAL -> {}
+        WaveType.REAL -> TrackProviderConsts.COLUMN_TRACK_WAVE to byteArrayOf()
     }
 )
 //

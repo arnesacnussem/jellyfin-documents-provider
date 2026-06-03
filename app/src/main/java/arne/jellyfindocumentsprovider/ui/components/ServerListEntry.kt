@@ -52,7 +52,7 @@ import kotlin.math.roundToInt
 
 data class ServerListEntryInfo(
     val db: Long,
-    val id: String?,
+    val id: String,
     val name: String,
     val url: String,
     val itemCount: Long,

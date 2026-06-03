@@ -46,15 +46,15 @@ data class VirtualFile(
 
     companion object {
         fun BaseItemDto.toVirtualFile(credential: JellyfinServer, libId: String): VirtualFile {
-            val mediaSource = mediaSources?.first()!!
-            val documentId = id.asString()
+            val mediaSource = mediaSources?.first()
+            val documentId = id?.asString() ?: ""
             return VirtualFile(
-                name = name!!,
+                name = name ?: "Unknown",
                 documentId = documentId,
-                mimeType = mediaSource.container.toMIMEType(),
-                displayName = name!!,
-                lastModified = 1000 * dateCreated?.toEpochSecond(ZoneOffset.UTC)!!,
-                size = mediaSource.size ?: 0,
+                mimeType = mediaSource?.container.toMIMEType(),
+                displayName = name ?: "Unknown",
+                lastModified = 1000 * (dateCreated?.toEpochSecond(ZoneOffset.UTC) ?: 0),
+                size = mediaSource?.size ?: 0,
                 libId = libId,
                 providerId = VPath.File(credential.uuid, libId, albumId?.asString(), documentId)
                     .toString(),
