@@ -72,7 +72,14 @@ data class CacheInfo(
         fun write(offset: Long, data: ByteArray) {
             fileRA.seek(offset)
             fileRA.write(data)
-            add(offset..offset + data.size)
+            if (data.isNotEmpty()) add(offset..offset + data.size - 1)
+        }
+
+        @Synchronized
+        fun write(offset: Long, data: ByteArray, length: Int) {
+            fileRA.seek(offset)
+            fileRA.write(data, 0, length)
+            if (length > 0) add(offset..offset + length - 1)
         }
 
         override fun close() {

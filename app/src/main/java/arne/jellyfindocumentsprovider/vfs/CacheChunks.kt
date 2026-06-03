@@ -14,10 +14,10 @@ open class CacheChunks(
         merge()
     }
 
+    @Synchronized
     fun offsetInChunks(offset: Long): LongRange? {
         merge()
-        // offset is larger or equal than it.first, and less than it.last
-        return innerList.find { it.first <= offset && it.last > offset }
+        return innerList.find { it.first <= offset && it.last >= offset }
     }
 
     private fun mergeOverlappingRanges(sortedRanges: MutableList<LongRange>): List<LongRange> {

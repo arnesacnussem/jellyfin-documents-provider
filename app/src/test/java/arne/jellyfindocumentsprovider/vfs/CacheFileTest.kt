@@ -20,9 +20,8 @@ class CacheFileTest {
         assertEquals(5, bytesRead)
         assertArrayEquals(data, readData)
 
-        // The chunk range is inclusive: 0..0+5 = 0..5 (matches write impl)
         assertEquals(1, cache.size)
-        assertEquals(0L..5L, cache[0])
+        assertEquals(0L..4L, cache[0])
 
         cache.close()
     }
@@ -58,9 +57,8 @@ class CacheFileTest {
         cache.write(0, byteArrayOf(1, 2, 3))
         cache.write(3, byteArrayOf(4, 5, 6))
 
-        // Chunks 0..3 and 3..6 should merge into 0..6 (adjacent: current.last + 1 >= next.first)
         assertEquals(1, cache.size)
-        assertEquals(0L..6L, cache[0])
+        assertEquals(0L..5L, cache[0])
 
         // Verify data integrity after merge
         val readData = ByteArray(6)
@@ -80,9 +78,9 @@ class CacheFileTest {
         cache.write(0, byteArrayOf(1, 2, 3, 4, 5))
         cache.write(2, byteArrayOf(6, 7, 8))
 
-        // Chunks 0..5 and 2..5 should merge into 0..5
+        // Chunks 0..4 and 2..4 should merge into 0..4
         assertEquals(1, cache.size)
-        assertEquals(0L..5L, cache[0])
+        assertEquals(0L..4L, cache[0])
 
         // Read back: second write overwrites at offset 2 with 6,7,8
         // So file has: 1, 2, 6, 7, 8
@@ -119,11 +117,11 @@ class CacheFileTest {
         cache.write(10, byteArrayOf(1, 2, 3, 4, 5))
 
         val chunk = cache.offsetInChunks(12)
-        assertNotNull("offset 12 should be within chunk 10..15", chunk)
-        assertEquals(10L..15L, chunk)
+        assertNotNull("offset 12 should be within chunk 10..14", chunk)
+        assertEquals(10L..14L, chunk)
 
         assertNull("offset 5 should not be in any chunk", cache.offsetInChunks(5))
-        assertNull("offset 15 is at exclusive end of 10..15", cache.offsetInChunks(15))
+        assertNull("offset 15 is past the end of 10..14", cache.offsetInChunks(15))
 
         cache.close()
     }
