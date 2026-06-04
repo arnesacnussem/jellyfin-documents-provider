@@ -19,6 +19,7 @@ object StatusEventManager {
     private val _events = MutableStateFlow<List<StatusEvent>>(emptyList())
     val events: StateFlow<List<StatusEvent>> = _events
     private val activeEvents = LinkedHashMap<String, StatusEvent>()
+    private val networkCounters = HashMap<String, Int>()
 
     fun startSync(id: String, message: String) = synchronized(this) {
         val event = StatusEvent(id = id, category = EventCategory.SYNC, message = message)
@@ -49,9 +50,12 @@ object StatusEventManager {
     }
 
     fun startNetwork(id: String, message: String) = synchronized(this) {
-        val event = StatusEvent(id = id, category = EventCategory.NETWORK, message = message)
-        activeEvents[id] = event
-        _events.value = activeEvents.values.toList()
+        val count = networkCounters.getOrDefault(id, 0) + 1
+        networkCounters[id] = count
+        if (count == 1) {
+            activeEvents[id] = StatusEvent(id = id, category = EventCategory.NETWORK, message = message)
+            _events.value = activeEvents.values.toList()
+        }
     }
 
     fun updateNetwork(id: String, message: String, progress: Float) = synchronized(this) {
@@ -61,7 +65,13 @@ object StatusEventManager {
     }
 
     fun finishNetwork(id: String) = synchronized(this) {
-        activeEvents.remove(id)
+        val count = networkCounters.getOrDefault(id, 0) - 1
+        if (count <= 0) {
+            networkCounters.remove(id)
+            activeEvents.remove(id)
+        } else {
+            networkCounters[id] = count
+        }
         _events.value = activeEvents.values.toList()
     }
 

@@ -25,7 +25,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -101,3 +101,15 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 }
 apply(plugin = "io.objectbox")
+
+val keystorePath = System.getenv("KEYSTORE_PATH")
+if (!keystorePath.isNullOrBlank()) {
+    val signingConfig = android.signingConfigs.create("release").apply {
+        storeFile = rootProject.file(keystorePath)
+        storePassword = System.getenv("KEY_STORE_PASSWORD")
+        keyAlias = System.getenv("KEY_ALIAS")
+        keyPassword = System.getenv("KEY_PASSWORD")
+    }
+    android.buildTypes.getByName("release").signingConfig = signingConfig
+    android.buildTypes.getByName("debug").signingConfig = signingConfig
+}

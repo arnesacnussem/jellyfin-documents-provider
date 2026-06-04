@@ -131,8 +131,13 @@ class DatabaseSyncTask(
         val nameMap = mutableMapOf<String, String>()
         repos.virtualFile.findAll().groupBy { it.albumId }.forEach { (album, items) ->
             if (album != null) {
-                val name = items.firstOrNull { it.album != null }?.name
-                    ?: api.getItemNameById(album)
+                val name = try {
+                    items.firstOrNull { it.album != null }?.name
+                        ?: api.getItemNameById(album)
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN) { "ensureThumbCaches: failed to resolve album name for $album: ${e.message}" }
+                    null
+                }
                 if (name != null) {
                     nameMap[album] = name
                 }

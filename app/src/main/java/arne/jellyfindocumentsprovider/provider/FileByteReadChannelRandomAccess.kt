@@ -8,6 +8,7 @@ import arne.jellyfindocumentsprovider.vfs.VirtualFile
 import arne.jellyfindocumentsprovider.vfs.getOrCreate
 import java.io.File
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -41,10 +42,12 @@ class FileByteReadChannelRandomAccess(
         }
     private val cache = cacheInfo.cacheFile
 
+    private val name: String = virtualFile.name
     private val docId = virtualFile.documentId
-    private var totalBytesRead = 0L
-    private var lastNotificationTime = 0L
-    private val notificationIntervalMs = 1000L
+    private val bytesCached = AtomicLong(
+        cache.sumOf { it.last - it.first + 1 }
+    )
+    @Volatile private var activeDownloaders = 0
 
     private val lock = java.lang.Object()
     @Volatile private var closed = false
@@ -81,11 +84,9 @@ class FileByteReadChannelRandomAccess(
                     val available = (availableEnd - offset).toInt()
                     if (available > 0) {
                         val bytesRead = cache.read(offset, available, data)
-                        totalBytesRead += bytesRead
                         if (offset + bytesRead > maxReadOffset) {
                             maxReadOffset = offset + bytesRead
                         }
-                        maybeNotify()
                         if (waited > 0) {
                             logcat(LogPriority.INFO) {
                                 "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (waited ${waited}ms, cache chunk ${chunk.first.readable}..${chunk.last.readable})"
@@ -147,9 +148,13 @@ class FileByteReadChannelRandomAccess(
         downloading[chunkStart] = chunkStart..minOf(chunkStart + PREFETCH_SIZE - 1, length - 1)
 
         seekers[chunkStart] = launch {
+            StatusEventManager.startNetwork(docId, "Downloading $name")
+            activeDownloaders++
             try {
                 runSeekDownloader(chunkStart)
             } finally {
+                activeDownloaders--
+                StatusEventManager.finishNetwork(docId)
                 synchronized(lock) {
                     downloading.remove(chunkStart)
                     seekers.remove(chunkStart)
@@ -159,6 +164,9 @@ class FileByteReadChannelRandomAccess(
     }
 
     private suspend fun runPrimaryDownloader() {
+        StatusEventManager.startNetwork(docId, "Downloading $name")
+        activeDownloaders++
+        try {
         var pos = 0L
         logcat(LogPriority.INFO) { "[$traceId] primary starting, length=${length.readable}" }
         while (isActive && pos < length) {
@@ -208,12 +216,17 @@ class FileByteReadChannelRandomAccess(
                     val n = inputStream.read(buf)
                     if (n < 0) break
                     cache.write(pos, buf, n)
-                    val writeEnd = pos + n - 1
+                    bytesCached.addAndGet(n.toLong())
                     writeCount++
                     bytesThisSegment += n
                     synchronized(lock) { lock.notifyAll() }
                     if (writeCount % 8L == 0L) {
                         persistCacheInfo()
+                        val cached = bytesCached.get()
+                        val pct = if (length > 0) cached.toFloat() / length else -1f
+                        StatusEventManager.updateNetwork(
+                            docId, "${name} ${cached.readable} / ${length.readable}", pct
+                        )
                     }
                     pos += n
                     primaryPos = pos
@@ -256,6 +269,15 @@ class FileByteReadChannelRandomAccess(
             }
         }
         logcat(LogPriority.INFO) { "[$traceId] primary finished, pos=${pos.readable}" }
+            val finalCached = bytesCached.get()
+            val finalPct = if (length > 0) finalCached.toFloat() / length else -1f
+            StatusEventManager.updateNetwork(
+                docId, "${name} ${finalCached.readable} / ${length.readable}", finalPct
+            )
+        } finally {
+            activeDownloaders--
+            StatusEventManager.finishNetwork(docId)
+        }
     }
 
     private suspend fun runSeekDownloader(chunkStart: Long) {
@@ -295,11 +317,17 @@ class FileByteReadChannelRandomAccess(
                 val n = inputStream.read(buf)
                 if (n < 0) break
                 cache.write(pos, buf, n)
+                bytesCached.addAndGet(n.toLong())
                 writeCount++
                 bytesThisSeg += n
                 synchronized(lock) { lock.notifyAll() }
                 if (writeCount % 8L == 0L) {
                     persistCacheInfo()
+                    val cached = bytesCached.get()
+                    val pct = if (length > 0) cached.toFloat() / length else -1f
+                    StatusEventManager.updateNetwork(
+                        docId, "${name} ${cached.readable} / ${length.readable}", pct
+                    )
                 }
                 pos += n
             }
@@ -307,6 +335,11 @@ class FileByteReadChannelRandomAccess(
             logcat(LogPriority.DEBUG) {
                 "[$traceId] seek done pos=${pos.readable} writes=$writeCount bytes=${bytesThisSeg.readable}"
             }
+            val finalCached = bytesCached.get()
+            val pct = if (length > 0) finalCached.toFloat() / length else -1f
+            StatusEventManager.updateNetwork(
+                docId, "${name} ${finalCached.readable} / ${length.readable}", pct
+            )
         } catch (e: CancellationException) {
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) {
@@ -333,19 +366,6 @@ class FileByteReadChannelRandomAccess(
             cacheInfo.persistCallback?.invoke(cacheInfo.copy(chunks = cache))
         } catch (e: Exception) {
             logcat(LogPriority.WARN) { "[$traceId] persistCacheInfo failed: ${e.message}" }
-        }
-    }
-
-    private fun maybeNotify() {
-        val now = System.currentTimeMillis()
-        if (now - lastNotificationTime >= notificationIntervalMs) {
-            lastNotificationTime = now
-            val pct = if (length > 0) totalBytesRead.toFloat() / length else -1f
-            StatusEventManager.updateNetwork(
-                    docId,
-                    "Streamed ${totalBytesRead.readable} / ${length.readable}",
-                    pct
-            )
         }
     }
 

@@ -1,8 +1,5 @@
 package arne.jellyfindocumentsprovider.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -26,11 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -38,56 +32,39 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import arne.jellyfindocumentsprovider.common.EventCategory
 import arne.jellyfindocumentsprovider.common.StatusEvent
-import arne.jellyfindocumentsprovider.common.StatusEventManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
-fun StatusBar(modifier: Modifier = Modifier) {
-    val events by StatusEventManager.events.collectAsState()
-    var detailCategory by remember { mutableStateOf<EventCategory?>(null) }
-
-    AnimatedVisibility(
-        visible = events.isNotEmpty(),
-        enter = slideInVertically { -it },
-        exit = slideOutVertically { -it },
+fun StatusChips(
+    events: List<StatusEvent>,
+    onCategoryClick: (EventCategory) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (events.isEmpty()) return
+    Row(
         modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            events.groupBy { it.category }.forEach { (category, categoryEvents) ->
-                StatusChip(
-                    category = category,
-                    count = categoryEvents.size,
-                    icon = when (category) {
-                        EventCategory.SYNC -> Icons.Filled.Sync
-                        EventCategory.METADATA -> Icons.Filled.CloudDownload
-                        EventCategory.NETWORK -> Icons.Filled.Download
-                    },
-                    onClick = { detailCategory = category },
-                )
-            }
+        events.groupBy { it.category }.forEach { (category, categoryEvents) ->
+            StatusChip(
+                category = category,
+                count = categoryEvents.size,
+                icon = when (category) {
+                    EventCategory.SYNC -> Icons.Filled.Sync
+                    EventCategory.METADATA -> Icons.Filled.CloudDownload
+                    EventCategory.NETWORK -> Icons.Filled.Download
+                },
+                onClick = { onCategoryClick(category) },
+            )
         }
-    }
-
-    detailCategory?.let { category ->
-        val categoryEvents = events.filter { it.category == category }
-        StatusDetailDialog(
-            category = category,
-            events = categoryEvents,
-            onDismiss = { detailCategory = null },
-        )
     }
 }
 
 @Composable
-private fun StatusChip(
+fun StatusChip(
     category: EventCategory,
     count: Int,
     icon: ImageVector,
@@ -118,7 +95,7 @@ private fun StatusChip(
 }
 
 @Composable
-private fun StatusDetailDialog(
+fun StatusDetailDialog(
     category: EventCategory,
     events: List<StatusEvent>,
     onDismiss: () -> Unit,
@@ -136,8 +113,13 @@ private fun StatusDetailDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(icon, contentDescription = null) },
-        title = { Text(title) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(title)
+            }
+        },
         text = {
             if (events.isEmpty()) {
                 Text("No active events")

@@ -59,9 +59,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.work.WorkManager
 import arne.jellyfindocumentsprovider.ServerWizardActivity
+import arne.jellyfindocumentsprovider.common.EventCategory
 import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
 import arne.jellyfindocumentsprovider.common.LocalSnackbarHostState
-import arne.jellyfindocumentsprovider.ui.components.StatusBar
+import arne.jellyfindocumentsprovider.common.StatusEventManager
+import arne.jellyfindocumentsprovider.ui.components.StatusChips
+import arne.jellyfindocumentsprovider.ui.components.StatusDetailDialog
 import logcat.LogPriority
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,6 +83,8 @@ fun App(appViewModel: AppViewModel = viewModel()) {
 
     val progress by appViewModel.progress.collectAsState()
     val sync by appViewModel.sync.collectAsState()
+    val events by StatusEventManager.events.collectAsState()
+    var detailCategory by remember { mutableStateOf<EventCategory?>(null) }
     var logFilterLevel by remember { mutableStateOf(LogPriority.INFO) }
     var showLogFilterMenu by remember { mutableStateOf(false) }
     LaunchedEffect(sync) {
@@ -96,6 +101,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
             ), title = {
                 Text(backStackEntry.value?.destination?.route ?: "Home")
             }, actions = {
+                StatusChips(events = events, onCategoryClick = { detailCategory = it })
                 if (backStackEntry.value?.destination?.route == AppRoute.Logs.name) {
                     AssistChip(
                         onClick = { showLogFilterMenu = true },
@@ -158,7 +164,6 @@ fun App(appViewModel: AppViewModel = viewModel()) {
 
         Column(modifier = Modifier.padding(innerPadding)) {
             if (progress > 0) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            StatusBar()
             NavHost(
                 navController = navController,
                 startDestination = AppRoute.Home.name,
@@ -189,6 +194,14 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                 composable(AppRoute.Logs.name) { LogScreen(logFilterLevel) }
                 composable(AppRoute.Settings.name) { Wrapper(viewModelStoreOwner) { SettingScreen() } }
             }
+        }
+
+        detailCategory?.let { category ->
+            StatusDetailDialog(
+                category = category,
+                events = events.filter { it.category == category },
+                onDismiss = { detailCategory = null },
+            )
         }
     }
 }

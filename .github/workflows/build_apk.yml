@@ -23,34 +23,55 @@ jobs:
         run: chmod +x gradlew
       - name: Run unit tests with coverage
         run: ./gradlew testDebugUnitTest koverXmlReport
-      - name: Build with Gradle
+      - name: Build debug APK
         run: ./gradlew assembleDebug
 
-      - name: Upload unsigned APK (artifact)
+      - name: Prepare release keystore
+        if: github.ref == 'refs/heads/main'
+        run: echo "$SIGNING_KEY" | base64 -d > release-keystore.jks
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
+          KEY_ALIAS: ${{ secrets.ALIAS }}
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload unsigned debug APK
         if: github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
-          name: app-debug-unsigned
+          name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           archive: false
 
-      - uses: r0adkll/sign-android-release@v1
-        name: Sign app APK
-        if: github.ref == 'refs/heads/main'
-        id: sign_debug
+      - name: Upload unsigned release APK
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v7
         with:
-          releaseDirectory: app/build/outputs/apk/debug
-          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "35.0.0"
+          name: app-release-unsigned
+          path: |
+            app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/mapping/release/mapping.txt
+          archive: false
 
-      - name: Upload signed APK (artifact)
+      - name: Upload debug APK
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: JellyfinDocumentsProvider-nightly.apk
-          path: ${{ steps.sign_debug.outputs.signedReleaseFile }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          archive: false
+
+      - name: Upload signed release APK
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: JellyfinDocumentsProvider-release.apk
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/mapping/release/mapping.txt
           archive: false
