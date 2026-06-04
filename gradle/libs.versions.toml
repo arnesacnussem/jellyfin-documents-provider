@@ -7,8 +7,7 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 appcompat = "1.7.0"
 kotlinxSerializationJson = "1.7.3"
-#noinspection GradleDependency -- keep same as jellyfin-core
-ktorClientCore = "2.3.12"
+okhttp = "4.12.0"
 material = "1.12.0"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
@@ -20,12 +19,13 @@ fragmentKtx = "1.8.5"
 navigationCompose = "2.8.4"
 objectboxGradlePlugin = "4.0.2"
 logcat = "0.1"
-jellyfinCore = "1.5.5"
+jellyfinCore = "1.8.10"
 mockk = "1.13.13"
 kotlinxCoroutinesTest = "1.9.0"
 powerampapi = "2a4267729d"
 runtimeLivedata = "1.7.5"
 workRuntimeKtx = "2.10.0"
+slf4j = "2.0.16"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,8 +34,8 @@ androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "j
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
-ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktorClientCore" }
-ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorClientCore" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }

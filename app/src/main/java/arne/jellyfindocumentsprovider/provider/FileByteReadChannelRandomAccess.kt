@@ -6,8 +6,8 @@ import arne.jellyfindocumentsprovider.vfs.FileStreamFactory
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
 import arne.jellyfindocumentsprovider.vfs.getOrCreate
-import io.ktor.utils.io.readAvailable
 import java.io.File
+import java.io.InputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -30,8 +30,6 @@ class FileByteReadChannelRandomAccess(
         private const val MAX_SEEK_DOWNLOADERS = 10
         private val PREFETCH_SIZE
             get() = 8 * chunkSize
-        private const val INITIAL_CHUNK_SIZE = 512L * 1024L
-        private const val PRIMARY_CHUNK_SIZE = 4L * 1024L * 1024L
         private const val IDLE_TIMEOUT_MS = 30_000L
         private const val BUFFER_AHEAD = 16L * 1024L * 1024L
     }
@@ -190,18 +188,12 @@ class FileByteReadChannelRandomAccess(
             }
 
             try {
-                val chunkEnd = if (pos == 0L) INITIAL_CHUNK_SIZE else PRIMARY_CHUNK_SIZE
-                val endBound = minOf(pos + chunkEnd - 1, length - 1)
                 logcat(LogPriority.DEBUG) {
-                    "[$traceId] primary requesting stream at pos=${pos.readable} end=${endBound.readable}"
+                    "[$traceId] primary requesting stream at pos=${pos.readable}"
                 }
-                val stream = fileStreamFactory(pos, endBound)
-                val channel = stream.channel
-                val end =
-                        stream.range?.last
-                                ?: (pos + stream.length - 1).let {
-                                    if (it < pos) length - 1 else it
-                                }
+                val stream = fileStreamFactory(pos, null)
+                val inputStream = stream.inputStream
+                val end = length - 1
                 currentPrimaryRange = pos..end
                 logcat(LogPriority.INFO) {
                     "[$traceId] primary stream opened pos=${pos.readable} serverRange=${
@@ -215,12 +207,8 @@ class FileByteReadChannelRandomAccess(
                 var bytesThisSegment = 0L
                 var seekerDeferred = false
                 while (isActive && pos <= end) {
-                    val n = channel.readAvailable(buf)
+                    val n = inputStream.read(buf)
                     if (n < 0) break
-                    if (n == 0) {
-                        delay(10)
-                        continue
-                    }
                     cache.write(pos, buf, n)
                     val writeEnd = pos + n - 1
                     writeCount++
@@ -250,6 +238,7 @@ class FileByteReadChannelRandomAccess(
                         break
                     }
                 }
+                inputStream.close()
                 currentPrimaryRange = null
                 logcat(LogPriority.DEBUG) {
                     "[$traceId] primary stream done pos=${pos.readable} writes=$writeCount bytes=${bytesThisSegment.readable}" +
@@ -294,7 +283,7 @@ class FileByteReadChannelRandomAccess(
                 "[$traceId] seek requesting stream pos=${pos.readable} end=${prefetchEnd.readable}"
             }
             val stream = fileStreamFactory(pos, prefetchEnd)
-            val channel = stream.channel
+            val inputStream = stream.inputStream
             logcat(LogPriority.INFO) {
                 "[$traceId] seek stream opened pos=${pos.readable} serverRange=${
                     stream.range?.let { "${it.first.readable}..${it.last.readable}" } ?: "none"
@@ -305,12 +294,8 @@ class FileByteReadChannelRandomAccess(
             var writeCount = 0L
             var bytesThisSeg = 0L
             while (isActive && pos <= prefetchEnd) {
-                val n = channel.readAvailable(buf)
+                val n = inputStream.read(buf)
                 if (n < 0) break
-                if (n == 0) {
-                    delay(10)
-                    continue
-                }
                 cache.write(pos, buf, n)
                 writeCount++
                 bytesThisSeg += n
@@ -320,6 +305,7 @@ class FileByteReadChannelRandomAccess(
                 }
                 pos += n
             }
+            inputStream.close()
             logcat(LogPriority.DEBUG) {
                 "[$traceId] seek done pos=${pos.readable} writes=$writeCount bytes=${bytesThisSeg.readable}"
             }

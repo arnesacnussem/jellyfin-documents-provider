@@ -3,7 +3,6 @@ package arne.jellyfindocumentsprovider.vfs
 import android.content.Context
 import android.util.Log
 import androidx.test.core.app.ApplicationProvider
-import io.ktor.utils.io.readAvailable
 import arne.jellyfindocumentsprovider.data.AppDependencies
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotNull
@@ -42,7 +41,7 @@ class DownloadLatencyTest {
             val t1 = System.currentTimeMillis()
 
             val buf = ByteArray(1)
-            val bytesRead = stream.channel.readAvailable(buf, 0, 1)
+            val bytesRead = stream.inputStream.read(buf)
 
             val t2 = System.currentTimeMillis()
 
@@ -54,7 +53,7 @@ class DownloadLatencyTest {
 
             Log.i("DownloadLatency", "iter=$iteration headerLat=${headerLatency}ms firstByteLat=${firstByteLatency}ms range=bytes=0- status=${stream.length} bytesRead=$bytesRead")
 
-            stream.channel.cancel(null)
+            stream.inputStream.close()
         }
 
         Log.i("DownloadLatency", "=== FULL FILE (bytes=0-) ===")
@@ -82,7 +81,7 @@ class DownloadLatencyTest {
             val t1 = System.currentTimeMillis()
 
             val buf = ByteArray(1)
-            val bytesRead = stream.channel.readAvailable(buf, 0, 1)
+            val bytesRead = stream.inputStream.read(buf)
 
             val t2 = System.currentTimeMillis()
 
@@ -94,7 +93,7 @@ class DownloadLatencyTest {
 
             Log.i("DownloadLatency", "iter=$iteration headerLat=${headerLatency}ms firstByteLat=${firstByteLatency}ms range=bytes=0-65535 status=${stream.length} bytesRead=$bytesRead")
 
-            stream.channel.cancel(null)
+            stream.inputStream.close()
         }
 
         Log.i("DownloadLatency", "=== SMALL RANGE (bytes=0-65535) ===")
@@ -121,7 +120,7 @@ class DownloadLatencyTest {
             val t1 = System.currentTimeMillis()
 
             val buf = ByteArray(1)
-            val bytesRead = stream.channel.readAvailable(buf, 0, 1)
+            val bytesRead = stream.inputStream.read(buf)
 
             val t2 = System.currentTimeMillis()
 
@@ -131,7 +130,7 @@ class DownloadLatencyTest {
             Log.i("DownloadLatency", "seq iter=$iteration headerLat=${headerLatency}ms firstByteLat=${firstByteLatency}ms bytesRead=$bytesRead")
 
             // drain the channel to avoid resource leak
-            stream.channel.cancel(null)
+            stream.inputStream.close()
         }
     } }
 
@@ -147,9 +146,9 @@ class DownloadLatencyTest {
         val stream1 = factory(0, 65535)
         val t1cold = System.currentTimeMillis()
         val buf1 = ByteArray(1)
-        stream1.channel.readAvailable(buf1, 0, 1)
+        stream1.inputStream.read(buf1)
         val t2cold = System.currentTimeMillis()
-        stream1.channel.cancel(null)
+        stream1.inputStream.close()
 
         Log.i("DownloadLatency", "COLD headerLat=${t1cold - t0cold}ms firstByteLat=${t2cold - t0cold}ms")
 
@@ -158,9 +157,9 @@ class DownloadLatencyTest {
         val stream2 = factory(0, 65535)
         val t1warm = System.currentTimeMillis()
         val buf2 = ByteArray(1)
-        stream2.channel.readAvailable(buf2, 0, 1)
+        stream2.inputStream.read(buf2)
         val t2warm = System.currentTimeMillis()
-        stream2.channel.cancel(null)
+        stream2.inputStream.close()
 
         Log.i("DownloadLatency", "WARM headerLat=${t1warm - t0warm}ms firstByteLat=${t2warm - t0warm}ms")
         Log.i("DownloadLatency", "=== COLD vs WARM: cold=${t2cold - t0cold}ms warm=${t2warm - t0warm}ms ===")
@@ -193,11 +192,11 @@ class DownloadLatencyTest {
             val stream = factory(start, size - 1)
             val t1 = System.currentTimeMillis()
             val buf = ByteArray(1)
-            stream.channel.readAvailable(buf, 0, 1)
+            stream.inputStream.read(buf)
             val t2 = System.currentTimeMillis()
 
             Log.i("DownloadLatency", "eof iter=$iteration headerLat=${t1 - t0}ms firstByteLat=${t2 - t0}ms range=bytes=$start-${size - 1}")
-            stream.channel.cancel(null)
+            stream.inputStream.close()
         }
     } }
 
@@ -219,7 +218,7 @@ class DownloadLatencyTest {
             val t1 = System.currentTimeMillis()
 
             val buf = ByteArray(1)
-            val bytesRead = stream.channel.readAvailable(buf, 0, 1)
+            val bytesRead = stream.inputStream.read(buf)
 
             val t2 = System.currentTimeMillis()
 
@@ -231,7 +230,7 @@ class DownloadLatencyTest {
 
             Log.i("DownloadLatency", "noRange iter=$iteration headerLat=${headerLatency}ms firstByteLat=${firstByteLatency}ms status=${stream.length} bytesRead=$bytesRead")
 
-            stream.channel.cancel(null)
+            stream.inputStream.close()
         }
 
         Log.i("DownloadLatency", "=== NO RANGE (bare GET, no Range header) ===")
@@ -257,27 +256,27 @@ class DownloadLatencyTest {
         val sNr = noRangeFactory(0, null)
         val t1nr = System.currentTimeMillis()
         val buf = ByteArray(1)
-        sNr.channel.readAvailable(buf, 0, 1)
+        sNr.inputStream.read(buf)
         val t2nr = System.currentTimeMillis()
-        sNr.channel.cancel(null)
+        sNr.inputStream.close()
         Log.i("DownloadLatency", "noRange  headerLat=${t1nr - t0nr}ms firstByteLat=${t2nr - t0nr}ms status=${sNr.length}")
 
         // smallRange
         val t0sr = System.currentTimeMillis()
         val sSr = smallRangeFactory(0, 65535)
         val t1sr = System.currentTimeMillis()
-        sSr.channel.readAvailable(buf, 0, 1)
+        sSr.inputStream.read(buf)
         val t2sr = System.currentTimeMillis()
-        sSr.channel.cancel(null)
+        sSr.inputStream.close()
         Log.i("DownloadLatency", "smallRng headerLat=${t1sr - t0sr}ms firstByteLat=${t2sr - t0sr}ms status=${sSr.length}")
 
         // fullRange
         val t0fr = System.currentTimeMillis()
         val sFr = fullRangeFactory(0, null)
         val t1fr = System.currentTimeMillis()
-        sFr.channel.readAvailable(buf, 0, 1)
+        sFr.inputStream.read(buf)
         val t2fr = System.currentTimeMillis()
-        sFr.channel.cancel(null)
+        sFr.inputStream.close()
         Log.i("DownloadLatency", "fullRng  headerLat=${t1fr - t0fr}ms firstByteLat=${t2fr - t0fr}ms status=${sFr.length}")
 
         Log.i("DownloadLatency", "SUMMARY: noRange=${t2nr - t0nr}ms smallRange=${t2sr - t0sr}ms fullRange=${t2fr - t0fr}ms")

@@ -89,8 +89,8 @@ dependencies {
     implementation(libs.jellyfin.core)
     implementation(libs.powerampapi)
 
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.cio)
+    implementation(libs.okhttp)
+    implementation(libs.slf4j.nop)
 
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.objectbox.android.objectbrowser)
