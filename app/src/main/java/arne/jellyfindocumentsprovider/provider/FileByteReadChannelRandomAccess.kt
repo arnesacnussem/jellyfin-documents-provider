@@ -2,12 +2,12 @@ package arne.jellyfindocumentsprovider.provider
 
 import arne.jellyfindocumentsprovider.common.StatusEventManager
 import arne.jellyfindocumentsprovider.hacks.readable
-import arne.jellyfindocumentsprovider.vfs.CacheInfo
 import arne.jellyfindocumentsprovider.vfs.FileStreamFactory
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
 import arne.jellyfindocumentsprovider.vfs.getOrCreate
 import io.ktor.utils.io.readAvailable
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import logcat.logcat
-import java.io.File
 
 class FileByteReadChannelRandomAccess(
     file: File,
@@ -28,8 +27,9 @@ class FileByteReadChannelRandomAccess(
 ) : RandomAccess() {
     companion object {
         var chunkSize: Long = 1048576L
-        private const val MAX_SEEK_DOWNLOADERS = 3
-        private val PREFETCH_SIZE get() = 8 * chunkSize
+        private const val MAX_SEEK_DOWNLOADERS = 10
+        private val PREFETCH_SIZE
+            get() = 8 * chunkSize
         private const val INITIAL_CHUNK_SIZE = 512L * 1024L
         private const val PRIMARY_CHUNK_SIZE = 4L * 1024L * 1024L
         private const val IDLE_TIMEOUT_MS = 30_000L
@@ -37,9 +37,10 @@ class FileByteReadChannelRandomAccess(
     }
 
     override val length: Long = virtualFile.size
-    private val cacheInfo = ObjectBox.cacheInfo.getOrCreate(virtualFile, file.absolutePath).also {
-        it.persistCallback = { ci -> ObjectBox.cacheInfo.put(ci) }
-    }
+    private val cacheInfo =
+        ObjectBox.cacheInfo.getOrCreate(virtualFile, file.absolutePath).also {
+            it.persistCallback = { ci -> ObjectBox.cacheInfo.put(ci) }
+        }
     private val cache = cacheInfo.cacheFile
 
     private val docId = virtualFile.documentId
@@ -55,9 +56,12 @@ class FileByteReadChannelRandomAccess(
     @Volatile private var primaryPos = 0L
     @Volatile private var lastReadTime = System.currentTimeMillis()
     @Volatile private var maxReadOffset = 0L
+    @Volatile private var currentPrimaryRange: LongRange? = null
 
     init {
-        logcat(LogPriority.INFO) { "[$traceId] RA created, size=${length.readable}, chunks=${cacheInfo.chunks}" }
+        logcat(LogPriority.INFO) {
+            "[$traceId] RA created, size=${length.readable}, chunks=${cacheInfo.chunks}"
+        }
         launch { runPrimaryDownloader() }
         launch { runIdleWatchdog() }
     }
@@ -119,8 +123,17 @@ class FileByteReadChannelRandomAccess(
     }
 
     private fun scheduleSeekDownload(offset: Long, force: Boolean = false) {
-        val chunkStart = (offset / chunkSize) * chunkSize
+        var chunkStart = (offset / chunkSize) * chunkSize
         if (chunkStart == 0L) return
+
+        val primaryRange = currentPrimaryRange
+        if (primaryRange != null && chunkStart <= primaryRange.last) {
+            if (primaryRange.last - chunkStart < PREFETCH_SIZE) {
+                val adjusted = ((primaryRange.last + 1) / chunkSize) * chunkSize
+                if (adjusted >= length) return
+                if (adjusted > chunkStart) chunkStart = adjusted
+            }
+        }
 
         if (seekers.containsKey(chunkStart)) return
 
@@ -166,9 +179,10 @@ class FileByteReadChannelRandomAccess(
                 continue
             }
 
-            val skipped = synchronized(lock) {
-                downloading.values.firstOrNull { pos in it }?.let { it.last + 1 }
-            }
+            val skipped =
+                    synchronized(lock) {
+                        downloading.values.firstOrNull { pos in it }?.let { it.last + 1 }
+                    }
             if (skipped != null) {
                 pos = skipped
                 primaryPos = pos
@@ -178,11 +192,17 @@ class FileByteReadChannelRandomAccess(
             try {
                 val chunkEnd = if (pos == 0L) INITIAL_CHUNK_SIZE else PRIMARY_CHUNK_SIZE
                 val endBound = minOf(pos + chunkEnd - 1, length - 1)
-                logcat(LogPriority.DEBUG) { "[$traceId] primary requesting stream at pos=${pos.readable} end=${endBound.readable}" }
+                logcat(LogPriority.DEBUG) {
+                    "[$traceId] primary requesting stream at pos=${pos.readable} end=${endBound.readable}"
+                }
                 val stream = fileStreamFactory(pos, endBound)
                 val channel = stream.channel
-                val end = stream.range?.last
-                    ?: (pos + stream.length - 1).let { if (it < pos) length - 1 else it }
+                val end =
+                        stream.range?.last
+                                ?: (pos + stream.length - 1).let {
+                                    if (it < pos) length - 1 else it
+                                }
+                currentPrimaryRange = pos..end
                 logcat(LogPriority.INFO) {
                     "[$traceId] primary stream opened pos=${pos.readable} serverRange=${
                         stream.range?.let { "${it.first.readable}..${it.last.readable}" } ?: "none"
@@ -193,6 +213,7 @@ class FileByteReadChannelRandomAccess(
                 var nextNotifyChunk = (pos / chunkSize).toLong()
                 var writeCount = 0L
                 var bytesThisSegment = 0L
+                var seekerDeferred = false
                 while (isActive && pos <= end) {
                     val n = channel.readAvailable(buf)
                     if (n < 0) break
@@ -208,6 +229,8 @@ class FileByteReadChannelRandomAccess(
                     if (writeCount % 8L == 0L) {
                         persistCacheInfo()
                     }
+                    pos += n
+                    primaryPos = pos
                     val currentChunk = pos / chunkSize
                     if (currentChunk != nextNotifyChunk) {
                         nextNotifyChunk = currentChunk
@@ -215,16 +238,33 @@ class FileByteReadChannelRandomAccess(
                             "[$traceId] primary ${pos.readable} (chunk $currentChunk, ${writeCount}w/${bytesThisSegment.readable} this segment)"
                         }
                     }
-                    pos += n
-                    primaryPos = pos
+                    val seekerEnd =
+                            synchronized(lock) {
+                                downloading.values.firstOrNull { pos in it }?.last
+                            }
+                    if (seekerEnd != null && pos <= seekerEnd && pos < end) {
+                        seekerDeferred = true
+                        logcat(LogPriority.DEBUG) {
+                            "[$traceId] primary deferred seek at pos=${pos.readable} end=${seekerEnd.readable}"
+                        }
+                        break
+                    }
                 }
+                currentPrimaryRange = null
                 logcat(LogPriority.DEBUG) {
-                    "[$traceId] primary stream done pos=${pos.readable} writes=$writeCount bytes=${bytesThisSegment.readable}"
+                    "[$traceId] primary stream done pos=${pos.readable} writes=$writeCount bytes=${bytesThisSegment.readable}" +
+                            if (seekerDeferred) {
+                                " (seeker deferred)"
+                            } else ""
                 }
             } catch (e: CancellationException) {
+                currentPrimaryRange = null
                 break
             } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "[$traceId] Primary error at ${pos.readable}: ${e.message}" }
+                currentPrimaryRange = null
+                logcat(LogPriority.ERROR) {
+                    "[$traceId] Primary error at ${pos.readable}: ${e.message}"
+                }
                 delay(1000)
             }
         }
@@ -234,7 +274,9 @@ class FileByteReadChannelRandomAccess(
     private suspend fun runSeekDownloader(chunkStart: Long) {
         val prefetchEnd = minOf(chunkStart + PREFETCH_SIZE - 1, length - 1)
         var pos = chunkStart
-        logcat(LogPriority.DEBUG) { "[$traceId] seek starting range ${pos.readable}..${prefetchEnd.readable}" }
+        logcat(LogPriority.DEBUG) {
+            "[$traceId] seek starting range ${pos.readable}..${prefetchEnd.readable}"
+        }
         try {
             val cached = cache.offsetInChunks(pos)
             if (cached != null) {
@@ -242,7 +284,15 @@ class FileByteReadChannelRandomAccess(
                 if (pos > prefetchEnd) return
             }
 
-            logcat(LogPriority.DEBUG) { "[$traceId] seek requesting stream pos=${pos.readable} end=${prefetchEnd.readable}" }
+            val cachedAfter = cache.offsetInChunks(pos)
+            if (cachedAfter != null) {
+                pos = maxOf(pos, cachedAfter.last + 1)
+                if (pos > prefetchEnd) return
+            }
+
+            logcat(LogPriority.DEBUG) {
+                "[$traceId] seek requesting stream pos=${pos.readable} end=${prefetchEnd.readable}"
+            }
             val stream = fileStreamFactory(pos, prefetchEnd)
             val channel = stream.channel
             logcat(LogPriority.INFO) {
@@ -275,19 +325,21 @@ class FileByteReadChannelRandomAccess(
             }
         } catch (e: CancellationException) {
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "[$traceId] Seek error at ${chunkStart.readable}: ${e.message}" }
+            logcat(LogPriority.ERROR) {
+                "[$traceId] Seek error at ${chunkStart.readable}: ${e.message}"
+            }
         }
     }
 
     override fun close() {
-        logcat(LogPriority.INFO) { "[$traceId] RA close() called, primaryPos=${primaryPos.readable}" }
+        logcat(LogPriority.INFO) {
+            "[$traceId] RA close() called, primaryPos=${primaryPos.readable}"
+        }
         synchronized(lock) {
             closed = true
             lock.notifyAll()
         }
-        runBlocking {
-            coroutineContext[Job]?.cancelAndJoin()
-        }
+        runBlocking { coroutineContext[Job]?.cancelAndJoin() }
         cacheInfo.close()
         logcat(LogPriority.INFO) { "[$traceId] RA close() done" }
     }
@@ -305,7 +357,11 @@ class FileByteReadChannelRandomAccess(
         if (now - lastNotificationTime >= notificationIntervalMs) {
             lastNotificationTime = now
             val pct = if (length > 0) totalBytesRead.toFloat() / length else -1f
-            StatusEventManager.updateNetwork(docId, "Streamed ${totalBytesRead.readable} / ${length.readable}", pct)
+            StatusEventManager.updateNetwork(
+                    docId,
+                    "Streamed ${totalBytesRead.readable} / ${length.readable}",
+                    pct
+            )
         }
     }
 

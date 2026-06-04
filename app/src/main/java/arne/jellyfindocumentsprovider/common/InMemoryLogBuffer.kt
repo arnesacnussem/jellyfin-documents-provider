@@ -31,6 +31,9 @@ object InMemoryLogBuffer : LogcatLogger {
     private val _newEntryFlow = MutableSharedFlow<LogEntry>(extraBufferCapacity = 64)
     val newEntryFlow: SharedFlow<LogEntry> = _newEntryFlow
 
+    private val _clearEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val clearEvents: SharedFlow<Unit> = _clearEvents
+
     private var uiLogLevel: LogPriority = LogPriority.INFO
 
     fun setUiLogLevel(level: LogPriority) {
@@ -41,6 +44,7 @@ object InMemoryLogBuffer : LogcatLogger {
 
     fun clear() {
         synchronized(buffer) { buffer.clear() }
+        _clearEvents.tryEmit(Unit)
     }
 
     override fun isLoggable(priority: LogPriority): Boolean = true
