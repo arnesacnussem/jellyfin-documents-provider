@@ -102,7 +102,7 @@ class FileByteReadChannelRandomAccess(
 
             synchronized(lock) {
                 if (closed) return -1
-                scheduleSeekDownload(offset, force = true)
+                scheduleSeekDownload(offset)
                 lock.wait(200)
             }
             waited += 200
@@ -120,7 +120,7 @@ class FileByteReadChannelRandomAccess(
         }
     }
 
-    private fun scheduleSeekDownload(offset: Long, force: Boolean = false) {
+    private fun scheduleSeekDownload(offset: Long) {
         var chunkStart = (offset / chunkSize) * chunkSize
         if (chunkStart == 0L) return
 
@@ -134,8 +134,6 @@ class FileByteReadChannelRandomAccess(
         }
 
         if (seekers.containsKey(chunkStart)) return
-
-        if (!force && primaryPos <= chunkStart && chunkStart - primaryPos < PREFETCH_SIZE) return
 
         if (downloading.values.any { chunkStart in it }) return
 
