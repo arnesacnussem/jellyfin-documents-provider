@@ -1,5 +1,4 @@
 <resources>
     <string name="app_name">JellyfinDocumentsProvider</string>
-    <string name="title_activity_main">MainActivity</string>
     <string name="title_activity_server_wizard">ServerWizard</string>
 </resources>

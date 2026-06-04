@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="art/icon.svg" width="128" height="128" alt="Jellyfin Documents Provider icon">
+  <img src="art/icon.png" width="128" height="128" alt="Jellyfin Documents Provider icon">
 </p>
 
 <p align="center">
