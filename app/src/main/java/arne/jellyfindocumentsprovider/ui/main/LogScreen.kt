@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
@@ -163,37 +164,45 @@ private fun LogEntryRow(entry: LogEntry) {
         LogPriority.ASSERT -> Color(0xFF9C27B0)
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 1.dp),
+            .padding(vertical = 1.dp, horizontal = 2.dp),
     ) {
-        Text(
-            text = entry.formattedTime,
-            fontSize = 10.sp,
-            fontFamily = FontFamily.Monospace,
-            color = Color.Gray,
-            modifier = Modifier.padding(end = 4.dp),
-        )
-        Text(
-            text = "[${entry.level.name.first()}]",
-            fontSize = 10.sp,
-            fontFamily = FontFamily.Monospace,
-            color = levelColor,
-            modifier = Modifier.padding(end = 4.dp),
-        )
-        Text(
-            text = entry.tag,
-            fontSize = 10.sp,
-            fontFamily = FontFamily.Monospace,
-            color = Color(0xFF9E9E9E),
-            modifier = Modifier.padding(end = 4.dp),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = entry.formattedTime,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = Color.Gray,
+                modifier = Modifier.padding(end = 4.dp),
+            )
+            Text(
+                text = "[${entry.level.name.first()}]",
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = levelColor,
+                modifier = Modifier.padding(end = 4.dp),
+            )
+            Text(
+                text = entry.tag,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                color = Color(0xFF9E9E9E),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
         Text(
             text = entry.message,
             fontSize = 10.sp,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(start = 2.dp),
         )
     }
 }
