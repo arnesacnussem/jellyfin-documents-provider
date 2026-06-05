@@ -274,11 +274,12 @@ class FileByteReadChannelRandomAccess(
             StatusEventManager.updateNetwork(
                 docId, "${name} ${finalCached.readable} / ${length.readable}", finalPct
             )
-        } finally {
-            activeDownloaders--
-            StatusEventManager.finishNetwork(docId)
-        }
+    } finally {
+        persistCacheInfo()
+        activeDownloaders--
+        StatusEventManager.finishNetwork(docId)
     }
+}
 
     private suspend fun runSeekDownloader(chunkStart: Long) {
         val prefetchEnd = minOf(chunkStart + PREFETCH_SIZE - 1, length - 1)
@@ -346,6 +347,7 @@ class FileByteReadChannelRandomAccess(
                 "[$traceId] Seek error at ${chunkStart.readable}: ${e.message}"
             }
         }
+        persistCacheInfo()
     }
 
     override fun close() {
