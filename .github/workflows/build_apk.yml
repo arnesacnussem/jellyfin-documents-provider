@@ -53,9 +53,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: app-release-unsigned
-          path: |
-            app/build/outputs/apk/release/app-release-unsigned.apk
-            app/build/outputs/mapping/release/mapping.txt
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
           archive: false
 
       - name: Upload debug APK
@@ -71,7 +69,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: JellyfinDocumentsProvider-release.apk
-          path: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/mapping/release/mapping.txt
+          path: app/build/outputs/apk/release/app-release.apk
           archive: false
