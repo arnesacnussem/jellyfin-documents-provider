@@ -54,6 +54,7 @@ androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifec
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 objectbox-gradle-plugin = { group = "io.objectbox", name = "objectbox-gradle-plugin", version.ref = "objectboxGradlePlugin" }
+objectbox-android = { group = "io.objectbox", name = "objectbox-android", version.ref = "objectboxGradlePlugin" }
 objectbox-android-objectbrowser = { group = "io.objectbox", name = "objectbox-android-objectbrowser", version.ref = "objectboxGradlePlugin" }
 logcat = { module = "com.squareup.logcat:logcat", version.ref = "logcat" }
 jellyfin-core = { module = "org.jellyfin.sdk:jellyfin-core", version.ref = "jellyfinCore" }

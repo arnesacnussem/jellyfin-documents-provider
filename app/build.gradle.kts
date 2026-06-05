@@ -93,7 +93,7 @@ dependencies {
     implementation(libs.slf4j.nop)
 
     implementation(libs.androidx.work.runtime.ktx)
-    debugImplementation(libs.objectbox.android.objectbrowser)
+    implementation(libs.objectbox.android)
     implementation(libs.androidx.security.crypto)
 
     testImplementation(libs.mockk)
