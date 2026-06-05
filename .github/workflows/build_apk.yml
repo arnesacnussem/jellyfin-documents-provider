@@ -2,9 +2,9 @@ name: Build APK
 
 on:
   push:
-    branches: [ "main", "thesecondchance" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "thesecondchance" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -33,6 +33,7 @@ jobs:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
 
       - name: Build release APK
+        if: github.ref == 'refs/heads/main'
         run: ./gradlew assembleRelease
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/release-keystore.jks
@@ -40,35 +41,10 @@ jobs:
           KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload unsigned debug APK
-        if: github.ref != 'refs/heads/main'
+      - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          archive: false
-
-      - name: Upload unsigned release APK
-        if: github.ref != 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-release-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
-          archive: false
-
-      - name: Upload unsigned release mapping
-        if: github.ref != 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: mapping-release-unsigned
-          path: app/build/outputs/mapping/release/mapping.txt
-          archive: false
-
-      - name: Upload debug APK
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: JellyfinDocumentsProvider-nightly.apk
           path: app/build/outputs/apk/debug/app-debug.apk
           archive: false
 
@@ -80,7 +56,7 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           archive: false
 
-      - name: Upload signed release mapping
+      - name: Upload release mapping
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
