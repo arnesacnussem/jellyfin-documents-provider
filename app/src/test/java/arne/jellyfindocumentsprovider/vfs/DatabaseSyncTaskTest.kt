@@ -43,7 +43,7 @@ class DatabaseSyncTaskTest {
             album = album, albumId = albumId
         )
 
-    private fun queryResult(total: Int, items: List<BaseItemDto>? = null, startIndex: Int = 0) =
+    private fun queryResult(total: Int, items: List<BaseItemDto> = emptyList(), startIndex: Int = 0) =
         BaseItemDtoQueryResult(items = items, totalRecordCount = total, startIndex = startIndex)
 
     @Test
@@ -142,7 +142,7 @@ class DatabaseSyncTaskTest {
     @Test
     fun sync_nullItemsFromApi_breaksCleanly() {
         coEvery { api.queryAudioItems("lib1", limit = 0) } returns queryResult(10)
-        coEvery { api.queryAudioItems("lib1", 0, 1000) } returns queryResult(0, null)
+        coEvery { api.queryAudioItems("lib1", 0, 1000) } returns queryResult(0, emptyList())
         every { vfRepo.put(any<VirtualFile>()) } just Runs
         every { vfRepo.findAll() } returns emptyList()
 

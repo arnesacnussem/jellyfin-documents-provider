@@ -59,6 +59,7 @@ class VirtualFileTest {
         transcodingUrl = null, transcodingSubProtocol = MediaStreamProtocol.HTTP,
         transcodingContainer = null, analyzeDurationMs = null,
         defaultAudioStreamIndex = null, defaultSubtitleStreamIndex = null,
+        hasSegments = false,
     )
 
     @Test
