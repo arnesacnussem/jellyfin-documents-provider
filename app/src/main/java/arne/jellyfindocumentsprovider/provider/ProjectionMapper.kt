@@ -6,14 +6,11 @@ import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
 import android.provider.MediaStore.Audio.AudioColumns
 import arne.jellyfindocumentsprovider.R
-import arne.jellyfindocumentsprovider.common.WaveType
 import arne.jellyfindocumentsprovider.vfs.AlbumInfo
 import arne.jellyfindocumentsprovider.vfs.JellyfinServer
-import arne.jellyfindocumentsprovider.vfs.PowerampExtraInfo
 import arne.jellyfindocumentsprovider.vfs.VPath
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
 import com.maxmpz.poweramp.player.TrackProviderConsts
-import com.maxmpz.poweramp.player.TrackProviderHelper
 
 fun emptyDirProjection(id: String, name: String) = listOf(
     Document.COLUMN_DOCUMENT_ID to id,
@@ -43,6 +40,7 @@ fun VirtualFile.asDocumentProjection(): List<Pair<String, Any?>> {
         Document.COLUMN_MIME_TYPE to mimeType,
         Document.COLUMN_LAST_MODIFIED to lastModified,
         Document.COLUMN_FLAGS to Document.FLAG_SUPPORTS_THUMBNAIL,
+        TrackProviderConsts.COLUMN_FLAGS to TrackProviderConsts.FLAG_HAS_LYRICS,
 
         // media info
         AudioColumns.DURATION to duration,
@@ -65,18 +63,6 @@ fun JellyfinServer.getLibrariesProjection(user: VPath.User) = library.entries.ma
         Document.COLUMN_FLAGS to 0
     )
 }
-
-fun PowerampExtraInfo.asDocumentProjection(waveType: WaveType) = listOfNotNull(
-    lyrics?.let { TrackProviderConsts.COLUMN_FLAGS to TrackProviderConsts.FLAG_HAS_LYRICS },
-    lyrics?.let { TrackProviderConsts.COLUMN_TRACK_LYRICS_SYNCED to it },
-    when (waveType) {
-        WaveType.NONE -> TrackProviderConsts.COLUMN_TRACK_WAVE to byteArrayOf()
-        WaveType.FAKE -> TrackProviderConsts.COLUMN_TRACK_WAVE to TrackProviderHelper.floatsToBytes(
-            getFakeWave()
-        )
-        WaveType.REAL -> TrackProviderConsts.COLUMN_TRACK_WAVE to byteArrayOf()
-    }
-)
 
 fun rootProjection(credentialId: VPath, serverName: String, username: String, lastUpdate: Long) = listOf(
     Root.COLUMN_ROOT_ID to credentialId,

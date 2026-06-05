@@ -6,6 +6,7 @@ import android.content.res.AssetFileDescriptor
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.graphics.Point
+import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.Handler
 import android.os.HandlerThread
@@ -27,11 +28,17 @@ import arne.jellyfindocumentsprovider.hacks.short
 import arne.jellyfindocumentsprovider.vfs.FSProvider
 import arne.jellyfindocumentsprovider.vfs.FSProvider.getAudioStreamFactory
 import arne.jellyfindocumentsprovider.vfs.FSProvider.thumbnailFromCacheOrRemote
+import arne.jellyfindocumentsprovider.vfs.JellyfinAccessor
 import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import arne.jellyfindocumentsprovider.vfs.toVPath
+import com.maxmpz.poweramp.player.TrackProviderConsts
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.logcat
 import java.io.FileNotFoundException
+import java.util.UUID
 
 
 class DocumentsProvider : DocumentsProvider() {
@@ -166,6 +173,16 @@ class DocumentsProvider : DocumentsProvider() {
         return DocumentsContract.Path(vPath.rootId, vPath.toString().split('/').drop(1))
     }
 
+    override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        return when (method) {
+            TrackProviderConsts.CALL_RESCAN -> {
+                logcat { "call: CALL_RESCAN" }
+                Bundle()
+            }
+            else -> super.call(method, arg, extras)
+        }
+    }
+
     @Throws(FileNotFoundException::class)
     override fun openDocument(
         documentId: String, mode: String?, signal: CancellationSignal?
@@ -189,8 +206,27 @@ class DocumentsProvider : DocumentsProvider() {
         }
         val (fsf, vf, bps) = factoryResult
         val handlerThread = HandlerThread("fdProxyHandler-${documentId.short}").apply { start() }
+        val playSessionId = UUID.randomUUID().toString()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                JellyfinAccessor(providerContext, vf.server.target).reportPlaybackStart(
+                    vf.documentId, playSessionId
+                )
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN) { "openDocument [$traceId] playback start report failed: ${e.message}" }
+            }
+        }
         val proxy = RandomAccessBucket.proxy(fsf, vf, bps, traceId) {
             handlerThread.quitSafely()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    JellyfinAccessor(providerContext, vf.server.target).reportPlaybackStopped(
+                        vf.documentId, playSessionId
+                    )
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN) { "openDocument [$traceId] playback stop report failed: ${e.message}" }
+                }
+            }
         }
         try {
             return storageManager.openProxyFileDescriptor(

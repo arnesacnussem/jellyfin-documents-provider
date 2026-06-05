@@ -3,6 +3,7 @@ package arne.jellyfindocumentsprovider.vfs
 import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import androidx.work.Worker
@@ -14,6 +15,8 @@ import arne.jellyfindocumentsprovider.hacks.fromMap
 import arne.jellyfindocumentsprovider.hacks.toPropertyMap
 import arne.jellyfindocumentsprovider.ui.PROGRESS_NOTIFICATION_ID
 import com.google.common.util.concurrent.ListenableFuture
+import com.maxmpz.poweramp.player.PowerampAPI
+import com.maxmpz.poweramp.player.PowerampAPIHelper
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import logcat.logcat
@@ -91,7 +94,24 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
         notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
 
+        notifyPowerampScan(applicationContext)
+
         return Result.success()
+    }
+
+    private fun notifyPowerampScan(context: Context) {
+        try {
+            val cn = PowerampAPIHelper.getScannerServiceComponentName(context)
+            val intent = Intent(PowerampAPI.Scanner.ACTION_SCAN_DIRS).apply {
+                component = cn
+                putExtra(PowerampAPI.Scanner.EXTRA_SCAN_PROVIDERS, true)
+                putExtra(PowerampAPI.Scanner.EXTRA_PROVIDER, "arne.jellyfindocumentsprovider")
+                putExtra(PowerampAPI.Scanner.EXTRA_CAUSE, "sync_complete")
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN) { "notifyPowerampScan: ${e.message}" }
+        }
     }
 
     @Suppress("ArrayInDataClass")

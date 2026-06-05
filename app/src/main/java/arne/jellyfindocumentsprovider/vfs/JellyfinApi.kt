@@ -28,4 +28,10 @@ interface JellyfinApi {
     fun getDownloadStreamFactory(itemId: String): FileStreamFactory
 
     suspend fun getItemNameById(id: String): String?
+
+    suspend fun getLyrics(itemId: String): String?
+
+    suspend fun reportPlaybackStart(itemId: String, playSessionId: String? = null)
+
+    suspend fun reportPlaybackStopped(itemId: String, playSessionId: String? = null, positionTicks: Long? = null)
 }

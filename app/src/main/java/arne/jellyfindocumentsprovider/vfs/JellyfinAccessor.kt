@@ -12,6 +12,8 @@ import org.jellyfin.sdk.api.client.extensions.audioApi
 import org.jellyfin.sdk.api.client.extensions.imageApi
 import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
+import org.jellyfin.sdk.api.client.extensions.lyricsApi
+import org.jellyfin.sdk.api.client.extensions.playStateApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
@@ -25,7 +27,14 @@ import org.jellyfin.sdk.model.api.BaseItemKind
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
+import org.jellyfin.sdk.model.api.LyricDto
+import org.jellyfin.sdk.model.api.LyricLine
+import org.jellyfin.sdk.model.api.PlayMethod
+import org.jellyfin.sdk.model.api.PlaybackOrder
+import org.jellyfin.sdk.model.api.RepeatMode
 import org.jellyfin.sdk.model.api.SortOrder
+import org.jellyfin.sdk.model.api.PlaybackStartInfo
+import org.jellyfin.sdk.model.api.PlaybackStopInfo
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
 import org.jellyfin.sdk.model.serializer.toUUID
 import arne.jellyfindocumentsprovider.vfs.JellyfinApi.Stream
@@ -131,6 +140,42 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
     suspend fun getItemNameByUUID(id: UUID): String? =
         getItemNameById(id.asString())
 
+
+    override suspend fun getLyrics(itemId: String): String? {
+        return try {
+            val dto = api.lyricsApi.getLyrics(itemId.toUUID()).content
+            dto?.toLrc()
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN) { "getLyrics($itemId): ${e.message}" }
+            null
+        }
+    }
+
+    override suspend fun reportPlaybackStart(itemId: String, playSessionId: String?) {
+        api.playStateApi.reportPlaybackStart(
+            PlaybackStartInfo(
+                canSeek = true,
+                itemId = itemId.toUUID(),
+                isPaused = false,
+                isMuted = false,
+                playMethod = PlayMethod.DIRECT_PLAY,
+                playSessionId = playSessionId,
+                repeatMode = RepeatMode.REPEAT_NONE,
+                playbackOrder = PlaybackOrder.DEFAULT,
+            )
+        )
+    }
+
+    override suspend fun reportPlaybackStopped(itemId: String, playSessionId: String?, positionTicks: Long?) {
+        api.playStateApi.reportPlaybackStopped(
+            PlaybackStopInfo(
+                itemId = itemId.toUUID(),
+                positionTicks = positionTicks,
+                playSessionId = playSessionId,
+                failed = false,
+            )
+        )
+    }
 
     override suspend fun getAudioStreamFactory(itemId: String, bps: Int): FileStreamFactory =
         { start, _ ->
@@ -277,4 +322,30 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
             val (start, end, _) = it.destructured
             return LongRange(start.toLong(), end.toLong())
         }
+}
+
+private fun Long.ticksToLrcTimestamp(): String {
+    val totalMs = this / 10_000
+    val minutes = (totalMs / 60_000).coerceIn(0, 99)
+    val seconds = (totalMs % 60_000) / 1_000
+    val centiseconds = (totalMs % 1_000) / 10
+    return "%02d:%02d.%02d".format(minutes, seconds, centiseconds)
+}
+
+private fun LyricDto.toLrc(): String {
+    val header = metadata?.let { m ->
+        buildString {
+            m.artist?.let { appendLine("[ar:$it]") }
+            m.album?.let { appendLine("[al:$it]") }
+            m.title?.let { appendLine("[ti:$it]") }
+            m.author?.let { appendLine("[au:$it]") }
+            m.by?.let { appendLine("[by:$it]") }
+            m.offset?.let { appendLine("[offset:$it]") }
+        }
+    } ?: ""
+    val body = lyrics.joinToString("\n") { line ->
+        val ts = (line.start ?: 0L).ticksToLrcTimestamp()
+        "[$ts]${line.text}"
+    }
+    return header + body
 }

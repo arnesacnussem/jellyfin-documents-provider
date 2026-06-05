@@ -2,11 +2,11 @@ package arne.jellyfindocumentsprovider.vfs
 
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id
+import io.objectbox.annotation.Index
 
 @Entity
-data class PowerampExtraInfo(
+data class LyricsCache(
     @Id var id: Long = 0,
-    val lyrics: String?
-) {
-    fun getFakeWave() = FloatArray(100) { -1f + 2f * Math.random().toFloat() }
-}
+    @Index val vfDocId: String,
+    val lyrics: String? = null,
+)

@@ -42,12 +42,19 @@
             android:icon="@mipmap/ic_launcher"
             >
             <!-- This meta allows Poweramp to identify tracks provider and enables it for Poweramp -->
-<!--            <meta-data android:name="com.maxmpz.PowerampTrackProvider" android:value="true"/>-->
+            <meta-data android:name="com.maxmpz.PowerampTrackProvider" android:value="true"/>
 
             <intent-filter>
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
+        <receiver
+            android:name=".broadcast.LyricsReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.maxmpz.audioplayer.ACTION_NEED_LYRICS" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
