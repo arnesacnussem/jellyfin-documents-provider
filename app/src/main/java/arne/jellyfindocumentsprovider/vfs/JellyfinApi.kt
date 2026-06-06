@@ -33,5 +33,7 @@ interface JellyfinApi {
 
     suspend fun reportPlaybackStart(itemId: String, playSessionId: String? = null)
 
+    suspend fun reportPlaybackProgress(itemId: String, playSessionId: String?, positionTicks: Long? = null, isPaused: Boolean)
+
     suspend fun reportPlaybackStopped(itemId: String, playSessionId: String? = null, positionTicks: Long? = null)
 }

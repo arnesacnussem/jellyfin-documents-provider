@@ -53,6 +53,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.hacks.readable
+import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -69,6 +70,7 @@ data class CacheEntryDisplay(
     val chunks: List<LongRange>,
     val isComplete: Boolean,
     val localPath: String,
+    val hasLyrics: Boolean,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,11 +83,16 @@ fun CacheMgrScreen() {
     var confirmDialog by remember { mutableStateOf<ConfirmAction?>(null) }
     val scope = rememberCoroutineScope()
 
+    var lyricsCount by remember { mutableLongStateOf(0L) }
+
     LaunchedEffect(Unit) {
         while (true) {
             withContext(Dispatchers.IO) {
                 val repos = AppDependencies.repos
                 thumbCount = repos.thumbCache.countWithData()
+                val lyricsList = ObjectBox.lyricsCache.all
+                lyricsCount = lyricsList.size.toLong()
+                val lyricsLookup = lyricsList.mapNotNull { it.lyrics?.let { _ -> it.vfDocId } }.toSet()
                 val cacheInfos = repos.cacheInfo.findAll()
                 cacheEntries = cacheInfos.mapNotNull { ci ->
                     val vf = repos.virtualFile.findByDocumentId(ci.vfDocId)
@@ -100,6 +107,7 @@ fun CacheMgrScreen() {
                             isComplete = ci.isCompleted ||
                                 (vf.size > 0 && ci.chunks.noGapsIn(0 until vf.size)),
                             localPath = ci.localPath,
+                            hasLyrics = ci.vfDocId in lyricsLookup,
                         )
                     } else null
                 }
@@ -111,6 +119,7 @@ fun CacheMgrScreen() {
 
     val totalCacheSize = cacheEntries.sumOf { it.cachedSize }
     val completeCount = cacheEntries.count { it.isComplete }
+    val lyricsAvailableCount = cacheEntries.count { it.hasLyrics }
 
     fun deleteEntry(entry: CacheEntryDisplay) {
         cacheEntries = cacheEntries.filter { it.id != entry.id }
@@ -163,6 +172,7 @@ fun CacheMgrScreen() {
                 thumbCount = thumbCount,
                 totalCacheSize = totalCacheSize,
                 completeCount = completeCount,
+                lyricsCount = lyricsAvailableCount,
             )
         }
 
@@ -333,7 +343,7 @@ fun SwipeableCacheFileRow(
 }
 
 @Composable
-fun StatsSection(thumbCount: Long, totalCacheSize: Long, completeCount: Int) {
+fun StatsSection(thumbCount: Long, totalCacheSize: Long, completeCount: Int, lyricsCount: Int) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -351,6 +361,11 @@ fun StatsSection(thumbCount: Long, totalCacheSize: Long, completeCount: Int) {
         StatCard(
             label = "Complete",
             value = "$completeCount",
+            modifier = Modifier.weight(1f),
+        )
+        StatCard(
+            label = "Lyrics",
+            value = "$lyricsCount",
             modifier = Modifier.weight(1f),
         )
     }
@@ -388,13 +403,25 @@ fun CacheFileRow(entry: CacheEntryDisplay) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = entry.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                Row(
                     modifier = Modifier.weight(1f, fill = false),
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = entry.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (entry.hasLyrics) {
+                        Spacer(Modifier.size(6.dp))
+                        Text(
+                            text = "Lyrics",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
                 Text(
                     text = if (entry.isComplete) entry.fileSize.readable
                            else "${entry.cachedSize.readable} / ${entry.fileSize.readable}",

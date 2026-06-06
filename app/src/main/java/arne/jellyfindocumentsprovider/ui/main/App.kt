@@ -122,18 +122,20 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                         InMemoryLogBuffer.clear()
                     }, content = { Icon(Icons.Filled.Clear, contentDescription = "Clear logs") })
                 }
-                IconButton(onClick = {
-                    with(appViewModel) {
-                        workManager.requestSync()
-                    }
-                }, content = { Icon(Icons.Filled.Sync, contentDescription = "Sync") })
-                IconButton(onClick = {
-                    context.startActivity(
-                        Intent(
-                            context, ServerWizardActivity::class.java
+                if (backStackEntry.value?.destination?.route == AppRoute.Home.name) {
+                    IconButton(onClick = {
+                        with(appViewModel) {
+                            workManager.requestSync()
+                        }
+                    }, content = { Icon(Icons.Filled.Sync, contentDescription = "Sync") })
+                    IconButton(onClick = {
+                        context.startActivity(
+                            Intent(
+                                context, ServerWizardActivity::class.java
+                            )
                         )
-                    )
-                }, content = { Icon(Icons.Filled.Add, contentDescription = "Add Server") })
+                    }, content = { Icon(Icons.Filled.Add, contentDescription = "Add Server") })
+                }
             })
         },
         bottomBar = {

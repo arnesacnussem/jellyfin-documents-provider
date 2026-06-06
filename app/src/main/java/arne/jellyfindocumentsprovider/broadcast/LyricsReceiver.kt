@@ -49,6 +49,7 @@ class LyricsReceiver : BroadcastReceiver() {
             return
         }
 
+        val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val server = ObjectBox.server.findByUUID(vPath.rootId)
@@ -71,6 +72,8 @@ class LyricsReceiver : BroadcastReceiver() {
                 logcat(LogPriority.DEBUG) { "LyricsReceiver: ACTION_UPDATE_LYRICS sent via sendPAIntent" }
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "LyricsReceiver: ${e.message}" }
+            } finally {
+                pendingResult.finish()
             }
         }
     }

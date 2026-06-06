@@ -8,6 +8,9 @@ import arne.jellyfindocumentsprovider.provider.asDocumentProjection
 import arne.jellyfindocumentsprovider.provider.emptyDirProjection
 import arne.jellyfindocumentsprovider.provider.getLibrariesProjection
 import arne.jellyfindocumentsprovider.provider.rootProjection
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import logcat.logcat
@@ -161,6 +164,19 @@ object FSProvider {
                 val vf = virtualFile.findByDocumentId(doc.id) ?: return null
                 val server = vf.server.target.asAccessor(this@getAudioStreamFactory)
                 val fsf = runBlocking { server.getAudioFileStreamFactory(doc) }
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        if (lyricsCache.findByVfDocId(vf.documentId) == null) {
+                            val lyrics = server.getLyrics(doc.id)
+                            lyricsCache.put(LyricsCache(vfDocId = vf.documentId, lyrics = lyrics))
+                            logcat(LogPriority.DEBUG) { "Lyrics cached for ${vf.documentId}" }
+                        }
+                    } catch (e: Exception) {
+                        logcat(LogPriority.WARN) { "Failed to cache lyrics for ${vf.documentId}: ${e.message}" }
+                    }
+                }
+
                 logcat(LogPriority.DEBUG) { "FSProvider.getAudioStreamFactory: done, took ${System.currentTimeMillis() - startTime}ms" }
                 Triple(fsf, vf, bps ?: -1)
             } else null

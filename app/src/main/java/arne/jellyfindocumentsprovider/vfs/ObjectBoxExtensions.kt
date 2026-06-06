@@ -38,6 +38,10 @@ fun Box<VirtualFile>.findByDocumentId(documentId: String) = query {
     equal(VirtualFile_.documentId, documentId, StringOrder.CASE_SENSITIVE)
 }.findFirst()
 
+fun Box<LyricsCache>.findByVfDocId(vfDocId: String): LyricsCache? = query {
+    equal(LyricsCache_.vfDocId, vfDocId, StringOrder.CASE_SENSITIVE)
+}.findFirst()
+
 fun Box<CacheInfo>.getOrCreate(vf: VirtualFile, path: String): CacheInfo {
     return query {
         equal(CacheInfo_.vfDocId, vf.documentId, StringOrder.CASE_SENSITIVE)

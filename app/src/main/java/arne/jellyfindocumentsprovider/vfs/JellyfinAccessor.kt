@@ -33,6 +33,7 @@ import org.jellyfin.sdk.model.api.PlayMethod
 import org.jellyfin.sdk.model.api.PlaybackOrder
 import org.jellyfin.sdk.model.api.RepeatMode
 import org.jellyfin.sdk.model.api.SortOrder
+import org.jellyfin.sdk.model.api.PlaybackProgressInfo
 import org.jellyfin.sdk.model.api.PlaybackStartInfo
 import org.jellyfin.sdk.model.api.PlaybackStopInfo
 import org.jellyfin.sdk.model.api.request.GetItemsRequest
@@ -160,6 +161,22 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
                 isMuted = false,
                 playMethod = PlayMethod.DIRECT_PLAY,
                 playSessionId = playSessionId,
+                repeatMode = RepeatMode.REPEAT_NONE,
+                playbackOrder = PlaybackOrder.DEFAULT,
+            )
+        )
+    }
+
+    override suspend fun reportPlaybackProgress(itemId: String, playSessionId: String?, positionTicks: Long?, isPaused: Boolean) {
+        api.playStateApi.reportPlaybackProgress(
+            PlaybackProgressInfo(
+                itemId = itemId.toUUID(),
+                playSessionId = playSessionId,
+                positionTicks = positionTicks,
+                isPaused = isPaused,
+                isMuted = false,
+                canSeek = true,
+                playMethod = PlayMethod.DIRECT_PLAY,
                 repeatMode = RepeatMode.REPEAT_NONE,
                 playbackOrder = PlaybackOrder.DEFAULT,
             )

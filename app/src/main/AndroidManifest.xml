@@ -12,6 +12,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.JellyfinDocumentsProvider"
         tools:targetApi="31">
 
@@ -53,6 +54,14 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.maxmpz.audioplayer.ACTION_NEED_LYRICS" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".broadcast.PlaybackReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.maxmpz.audioplayer.TRACK_CHANGED_EXPLICIT" />
+                <action android:name="com.maxmpz.audioplayer.STATUS_CHANGED_EXPLICIT" />
             </intent-filter>
         </receiver>
     </application>
