@@ -1,14 +1,15 @@
-<p align="center">
-  <img src="art/icon.png" width="128" height="128" alt="Jellyfin Documents Provider icon">
-</p>
+<h1>
+  <img src="art/icon.png" width="28" height="28" alt=""> Jellyfin Documents Provider
+</h1>
 
-<p align="center">
+<p>
   <a href="https://github.com/arnesacnussem/jellyfin-documents-provider/actions/workflows/build_apk.yml">
     <img src="https://github.com/arnesacnussem/jellyfin-documents-provider/actions/workflows/build_apk.yml/badge.svg" alt="Build APK">
   </a>
+  <a href="https://github.com/arnesacnussem/jellyfin-documents-provider/releases/latest">
+    <img src="https://img.shields.io/github/v/release/arnesacnussem/jellyfin-documents-provider?label=latest" alt="Latest release">
+  </a>
 </p>
-
-# Jellyfin Documents Provider
 
 Map [Jellyfin](https://jellyfin.org) to an Android `DocumentsProvider` so any file manager or music player (e.g. [Poweramp](https://powerampapp.com)) can browse and stream your Jellyfin media library.
 
@@ -24,15 +25,18 @@ The app syncs library metadata (albums, tracks, artwork) to a local database. Wh
 
 ## Features
 
-- [x] DocumentsProvider — browse Jellyfin media as a virtual filesystem
-- [x] Multi-server / multi-account support
-- [x] Audio streaming with bitrate limiting (none / cellular / always)
-- [x] Smart file caching (partial chunk caching with overlap merging)
-- [x] Album art / thumbnail caching
-- [x] Cache management UI (view, swipe-to-delete, clean all)
-- [x] Real-time sync via WorkManager foreground service with progress notifications
-- [x] In-app log viewer with level filtering
-- [x] PowerAMP track provider integration (entity + projection, meta-data disabled by default)
+- [x] **DocumentsProvider** — browse Jellyfin media as a virtual filesystem via any file manager or music player
+- [x] **Multi-server / multi-account** — add multiple Jellyfin servers, each appearing as a separate filesystem root
+- [x] **Audio streaming** with configurable bitrate limiting (none / cellular / always; 64–320 Kbps)
+- [x] **Smart file caching** — chunk-based progressive download with overlap merging, parallel seek downloaders, and idle watchdog
+- [x] **Album art / thumbnail caching** — lazy on-demand fetch with in-flight request deduplication
+- [x] **Cache management UI** — view stats, per-item swipe-to-delete, and bulk cleanup
+- [x] **Database sync** — WorkManager foreground service with progress notification, batch fetching, and album grouping
+- [x] **Poweramp integration** — track provider with rich metadata columns, post-sync auto-rescan, playback scrobbling, and lyrics delivery
+- [x] **Lyrics support** — Jellyfin server-side lyrics fetched on-stream, converted to LRC, and delivered to Poweramp
+- [x] **In-app log viewer** — real-time ring buffer log with level filtering and auto-scroll
+- [x] **Live status monitoring** — sync, metadata fetch, and network download progress in the status bar
+- [x] **Secure token storage** — AES256-GCM encrypted token storage via EncryptedSharedPreferences
 - [ ] 401 / token expiry re-login
 - [ ] User-facing notifications (sync complete, errors)
 - [ ] Better UI polish

@@ -1,6 +1,9 @@
 package arne.jellyfindocumentsprovider.ui.main
 
 import android.content.Intent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -153,7 +156,11 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                         }, label = { Text(it.name) }, selected = selected, onClick = {
                             if (selected) return@NavigationBarItem
 
-                            slideDirection = if (it.name == AppRoute.Cache.name) -1 else 1
+                            val routes = listOf(AppRoute.Home, AppRoute.Cache, AppRoute.Logs, AppRoute.Settings)
+                            val currentIndex = routes.indexOfFirst { r -> r.name == backStackEntry.value?.destination?.route }
+                            val targetIndex = routes.indexOf(it)
+                            slideDirection = if (targetIndex > currentIndex) 1 else -1
+
                             navController.navigate(it.name.lowercase()) {
                                 popUpTo(navController.graph.findStartDestination().id)
                                 launchSingleTop = true
@@ -172,24 +179,18 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(),
-//        enterTransition = {
-//            slideInHorizontally(
-//                initialOffsetX = { it },
-//                animationSpec = tween(durationMillis = 300)
-//            )
-//        },
-//        exitTransition = {
-//            slideOutHorizontally(
-//                targetOffsetX = { -it },
-//                animationSpec = tween(durationMillis = 300)
-//            )
-//        }
-//        exitTransition = {
-//            slideOutHorizontally(
-//                targetOffsetX = { -slideDirection * it },
-//                animationSpec = tween(durationMillis = 300)
-//            )
-//        },
+                enterTransition = {
+                    slideInHorizontally(
+                        initialOffsetX = { slideDirection * it },
+                        animationSpec = tween(durationMillis = 300)
+                    )
+                },
+                exitTransition = {
+                    slideOutHorizontally(
+                        targetOffsetX = { -slideDirection * it },
+                        animationSpec = tween(durationMillis = 300)
+                    )
+                },
             ) {
                 composable(AppRoute.Home.name) { Wrapper(viewModelStoreOwner) { HomeScreen() } }
                 composable(AppRoute.Cache.name) { Wrapper(viewModelStoreOwner) { CacheMgrScreen() } }

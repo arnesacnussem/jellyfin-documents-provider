@@ -2,6 +2,7 @@ package arne.jellyfindocumentsprovider.ui.main
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,23 +36,25 @@ fun SettingScreen() {
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+
         Text("Bitrate Limit Type", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
 
-        val bitrateLimitType by remember { mutableStateOf(prefs.getEnum<BitrateLimitType>(PrefKeys.BITRATE_LIMIT_TYPE)) }
+        var bitrateLimitType by remember { mutableStateOf(prefs.getEnum<BitrateLimitType>(PrefKeys.BITRATE_LIMIT_TYPE)) }
         var bitrateLimitTypeExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(expanded = bitrateLimitTypeExpanded, onExpandedChange = { bitrateLimitTypeExpanded = it }) {
+        ExposedDropdownMenuBox(expanded = bitrateLimitTypeExpanded, onExpandedChange = { bitrateLimitTypeExpanded = it }, modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = bitrateLimitType.readable,
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bitrateLimitTypeExpanded) },
-                modifier = Modifier.menuAnchor()
+                modifier = Modifier.fillMaxWidth().menuAnchor()
             )
             ExposedDropdownMenu(expanded = bitrateLimitTypeExpanded, onDismissRequest = { bitrateLimitTypeExpanded = false }) {
                 BitrateLimitType.entries.forEach { type ->
                     DropdownMenuItem(
                         text = { Text(type.readable) },
                         onClick = {
+                            bitrateLimitType = type
                             prefs.edit().putString(PrefKeys.BITRATE_LIMIT_TYPE.name, type.name).apply()
                             bitrateLimitTypeExpanded = false
                         }
@@ -61,21 +64,22 @@ fun SettingScreen() {
         }
 
         Text("Bitrate Limit", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
-        val bitrateLimit by remember { mutableStateOf(prefs.getEnum<BitrateLimits>(PrefKeys.BITRATE_LIMIT)) }
+        var bitrateLimit by remember { mutableStateOf(prefs.getEnum<BitrateLimits>(PrefKeys.BITRATE_LIMIT)) }
         var bitrateLimitExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(expanded = bitrateLimitExpanded, onExpandedChange = { bitrateLimitExpanded = it }) {
+        ExposedDropdownMenuBox(expanded = bitrateLimitExpanded, onExpandedChange = { bitrateLimitExpanded = it }, modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = bitrateLimit.readable,
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bitrateLimitExpanded) },
-                modifier = Modifier.menuAnchor()
+                modifier = Modifier.fillMaxWidth().menuAnchor()
             )
             ExposedDropdownMenu(expanded = bitrateLimitExpanded, onDismissRequest = { bitrateLimitExpanded = false }) {
                 BitrateLimits.entries.forEach { limit ->
                     DropdownMenuItem(
                         text = { Text(limit.readable) },
                         onClick = {
+                            bitrateLimit = limit
                             prefs.edit().putString(PrefKeys.BITRATE_LIMIT.name, limit.name).apply()
                             bitrateLimitExpanded = false
                         }
@@ -85,21 +89,22 @@ fun SettingScreen() {
         }
 
         Text("Wave Type", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
-        val waveType by remember { mutableStateOf(prefs.getEnum<WaveType>(PrefKeys.WAVE_TYPE)) }
+        var waveType by remember { mutableStateOf(prefs.getEnum<WaveType>(PrefKeys.WAVE_TYPE)) }
         var waveTypeExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(expanded = waveTypeExpanded, onExpandedChange = { waveTypeExpanded = it }) {
+        ExposedDropdownMenuBox(expanded = waveTypeExpanded, onExpandedChange = { waveTypeExpanded = it }, modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = waveType.description,
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = waveTypeExpanded) },
-                modifier = Modifier.menuAnchor()
+                modifier = Modifier.fillMaxWidth().menuAnchor()
             )
             ExposedDropdownMenu(expanded = waveTypeExpanded, onDismissRequest = { waveTypeExpanded = false }) {
                 WaveType.entries.forEach { type ->
                     DropdownMenuItem(
                         text = { Text(type.description) },
                         onClick = {
+                            waveType = type
                             prefs.edit().putString(PrefKeys.WAVE_TYPE.name, type.name).apply()
                             waveTypeExpanded = false
                         }

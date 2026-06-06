@@ -1,19 +1,30 @@
 package arne.jellyfindocumentsprovider.ui.main
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.gestures.snapTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -24,15 +35,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,10 +53,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.hacks.readable
@@ -58,6 +67,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 import java.io.File
 
 private enum class ConfirmAction { CleanIncomplete, CleanAll }
@@ -71,9 +81,9 @@ data class CacheEntryDisplay(
     val isComplete: Boolean,
     val localPath: String,
     val hasLyrics: Boolean,
+    val hasThumbnail: Boolean,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @Preview
 fun CacheMgrScreen() {
@@ -93,6 +103,8 @@ fun CacheMgrScreen() {
                 val lyricsList = ObjectBox.lyricsCache.all
                 lyricsCount = lyricsList.size.toLong()
                 val lyricsLookup = lyricsList.mapNotNull { it.lyrics?.let { _ -> it.vfDocId } }.toSet()
+                val thumbData = ObjectBox.thumbCache.all
+                val thumbLookup = thumbData.filter { it.data != null }.map { it.id }.toSet()
                 val cacheInfos = repos.cacheInfo.findAll()
                 cacheEntries = cacheInfos.mapNotNull { ci ->
                     val vf = repos.virtualFile.findByDocumentId(ci.vfDocId)
@@ -108,6 +120,7 @@ fun CacheMgrScreen() {
                                 (vf.size > 0 && ci.chunks.noGapsIn(0 until vf.size)),
                             localPath = ci.localPath,
                             hasLyrics = ci.vfDocId in lyricsLookup,
+                            hasThumbnail = vf.thumbCacheId in thumbLookup,
                         )
                     } else null
                 }
@@ -216,12 +229,25 @@ fun CacheMgrScreen() {
 
         if (cacheEntries.isEmpty()) {
             item {
-                Text(
-                    "No cached files",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 24.dp),
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 48.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.CleaningServices,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "No cached files",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         } else {
             item {
@@ -294,53 +320,87 @@ fun CacheMgrScreen() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SwipeableCacheFileRow(
     entry: CacheEntryDisplay,
     onDelete: (CacheEntryDisplay) -> Unit,
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete(entry)
-                true
-            } else {
-                false
-            }
-        },
-    )
+    val density = LocalDensity.current
+    val dragState = remember {
+        AnchoredDraggableState(
+            initialValue = CacheDragAnchor.Start,
+            anchors = with(density) {
+                DraggableAnchors {
+                    CacheDragAnchor.Start at 0.dp.toPx()
+                    CacheDragAnchor.End at -128.dp.toPx()
+                }
+            },
+            positionalThreshold = { 0.3f * it },
+            velocityThreshold = { with(density) { Int.MAX_VALUE.dp.toPx() } },
+            snapAnimationSpec = tween(),
+            decayAnimationSpec = exponentialDecay(),
+        )
+    }
+    var height by remember { mutableStateOf(0.dp) }
+    val coroutineScope = rememberCoroutineScope()
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true,
-        backgroundContent = {
-            val color by animateColorAsState(
-                targetValue = when (dismissState.targetValue) {
-                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.error
-                    else -> Color.Transparent
-                },
-                label = "swipe_bg",
-            )
+    Box(
+        modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height),
+            horizontalArrangement = Arrangement.End
+        ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(color)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd,
+                    .width(128.dp)
+                    .fillMaxHeight()
+                    .background(color = MaterialTheme.colorScheme.error)
+                    .clickable {
+                        coroutineScope.launch {
+                            dragState.snapTo(CacheDragAnchor.Start)
+                            onDelete(entry)
+                        }
+                    }, contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Delete,
-                    contentDescription = "Delete",
+                    "Delete",
                     tint = MaterialTheme.colorScheme.onError,
                 )
             }
-        },
-    ) {
-        CacheFileRow(entry)
+        }
+
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .offset {
+                IntOffset(
+                    x = dragState
+                        .requireOffset()
+                        .roundToInt(), y = 0
+                )
+            }
+            .anchoredDraggable(
+                state = dragState,
+                orientation = Orientation.Horizontal,
+            )
+            .background(
+                color = MaterialTheme.colorScheme.background
+            )
+            .onGloballyPositioned { coordinates ->
+                height = with(density) {
+                    coordinates.size.height.toDp()
+                }
+            }) {
+            CacheFileRow(entry)
+        }
     }
 }
+
+private enum class CacheDragAnchor { Start, End }
 
 @Composable
 fun StatsSection(thumbCount: Long, totalCacheSize: Long, completeCount: Int, lyricsCount: Int) {
@@ -398,27 +458,34 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
 fun CacheFileRow(entry: CacheEntryDisplay) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = entry.name,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
-                    modifier = Modifier.weight(1f, fill = false),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        text = entry.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                     if (entry.hasLyrics) {
-                        Spacer(Modifier.size(6.dp))
                         Text(
                             text = "Lyrics",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (entry.hasThumbnail) {
+                        Text(
+                            text = "Art",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary,
                         )
                     }
                 }

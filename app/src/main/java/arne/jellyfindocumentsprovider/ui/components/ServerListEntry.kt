@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -37,15 +36,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import arne.jellyfindocumentsprovider.vfs.ObjectBox
 import kotlinx.coroutines.launch
 import logcat.logcat
 import kotlin.math.roundToInt
@@ -100,9 +98,7 @@ fun ServerItem(
                 modifier = Modifier
                     .width(128.dp)
                     .fillMaxHeight()
-                    .background(
-                        color = Color(211, 47, 47, 255)
-                    )
+                    .background(color = MaterialTheme.colorScheme.error)
                     .clickable {
                         coroutineScope.launch {
                             dragState.snapTo(MyDragAnchor.Start)
@@ -111,9 +107,12 @@ fun ServerItem(
                         }
                     }, contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.Delete, "Delete")
+                Icon(
+                    Icons.Outlined.Delete,
+                    "Delete",
+                    tint = MaterialTheme.colorScheme.onError,
+                )
             }
-
         }
 
         Box(modifier = Modifier
@@ -157,9 +156,15 @@ fun ServerItem(
                     ) {
                         Text(
                             "${info.name} (${info.user})",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Text(info.url)
+                        Text(
+                            info.url,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                         Text("Library: ${info.libCount}")
                         Text("Items: ${info.itemCount}")
                     }

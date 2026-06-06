@@ -4,8 +4,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import logcat.LogPriority
 import logcat.LogcatLogger
+import java.util.concurrent.atomic.AtomicLong
 
 data class LogEntry(
+    val id: Long = nextId.getAndIncrement(),
     val timestamp: Long = System.currentTimeMillis(),
     val tag: String,
     val level: LogPriority,
@@ -23,6 +25,8 @@ data class LogEntry(
 
     private fun Int.pad(width: Int): String = toString().padStart(width, '0')
 }
+
+private val nextId = AtomicLong(0)
 
 object InMemoryLogBuffer : LogcatLogger {
 
