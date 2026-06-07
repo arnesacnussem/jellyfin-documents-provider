@@ -14,6 +14,7 @@ import org.jellyfin.sdk.api.client.extensions.itemsApi
 import org.jellyfin.sdk.api.client.extensions.libraryApi
 import org.jellyfin.sdk.api.client.extensions.lyricsApi
 import org.jellyfin.sdk.api.client.extensions.playStateApi
+import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
 import org.jellyfin.sdk.api.client.extensions.userApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
@@ -24,6 +25,8 @@ import org.jellyfin.sdk.model.UUID
 import org.jellyfin.sdk.model.api.AuthenticateUserByName
 import org.jellyfin.sdk.model.api.BaseItemDtoQueryResult
 import org.jellyfin.sdk.model.api.BaseItemKind
+import org.jellyfin.sdk.model.api.QuickConnectDto
+import org.jellyfin.sdk.model.api.QuickConnectResult
 import org.jellyfin.sdk.model.api.ImageType
 import org.jellyfin.sdk.model.api.ItemFields
 import org.jellyfin.sdk.model.api.ItemSortBy
@@ -320,8 +323,39 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
                 logcat(LogPriority.ERROR) {
                     "unable to login to server $url, error: ${e.stackTraceToString()}"
                 }
+                throw IllegalArgumentException("unable to login to server $url", e)
             }
-            throw IllegalArgumentException("unable to login to server $url")
+        }
+
+        suspend fun initiateQuickConnect(ctx: Context): QuickConnectResult {
+            if (url.isBlank())
+                throw IllegalArgumentException("The baseUrl must not be blank!")
+            val api = createJellyfin(ctx).createApi(baseUrl = url)
+            val publicInfo by api.systemApi.getPublicSystemInfo()
+            logcat { "server info: $publicInfo" }
+            val result by api.quickConnectApi.initiateQuickConnect()
+            return result
+        }
+
+        suspend fun authenticateQuickConnect(ctx: Context, secret: String): JellyfinServer {
+            if (url.isBlank())
+                throw IllegalArgumentException("The baseUrl must not be blank!")
+            val api = createJellyfin(ctx).createApi(baseUrl = url)
+            val serverPublicInfo by api.systemApi.getPublicSystemInfo()
+            logcat { "server info: $serverPublicInfo" }
+            val authResult by api.userApi.authenticateWithQuickConnect(QuickConnectDto(secret = secret))
+            logcat { "user info: ${authResult.user}" }
+            val token = authResult.accessToken!!
+            val userId = authResult.user!!.id.asString()
+            JellyfinTokenStore.save(ctx, userId, token)
+            return JellyfinServer(
+                url = url,
+                serverName = serverPublicInfo.serverName ?: "Unknown Server",
+                library = mapOf(),
+                token = "",
+                username = authResult.user!!.name!!,
+                uuid = userId
+            )
         }
     }
 
