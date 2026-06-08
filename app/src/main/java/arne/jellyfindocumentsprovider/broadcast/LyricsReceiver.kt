@@ -23,12 +23,12 @@ class LyricsReceiver : BroadcastReceiver() {
 
         val realId = intent.getLongExtra(PowerampAPI.Track.REAL_ID, -1L)
         val rawPath = intent.getStringExtra(PowerampAPI.Track.PATH) ?: run {
-            logcat(LogPriority.WARN) { "LyricsReceiver: no PATH extra" }
+            logcat(LogPriority.DEBUG) { "LyricsReceiver: no PATH extra" }
             return
         }
 
         if (realId < 0) {
-            logcat(LogPriority.WARN) { "LyricsReceiver: invalid REAL_ID=$realId" }
+            logcat(LogPriority.DEBUG) { "LyricsReceiver: invalid REAL_ID=$realId" }
             return
         }
 
@@ -37,7 +37,7 @@ class LyricsReceiver : BroadcastReceiver() {
         val documentId = try {
             resolveDocumentId(rawPath)
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "LyricsReceiver: failed to resolve path: $rawPath — ${e.message}" }
+            logcat(LogPriority.WARN) { "LyricsReceiver: failed to resolve path: $rawPath — ${e.message}" }
             null
         } ?: return
 
@@ -45,7 +45,7 @@ class LyricsReceiver : BroadcastReceiver() {
 
         val vPath = documentId.toVPath()
         if (vPath !is VPath.File) {
-            logcat(LogPriority.WARN) { "LyricsReceiver: not a file VPath: $documentId" }
+            logcat(LogPriority.DEBUG) { "LyricsReceiver: not a file VPath: $documentId" }
             return
         }
 
@@ -54,7 +54,7 @@ class LyricsReceiver : BroadcastReceiver() {
             try {
                 val server = ObjectBox.server.findByUUID(vPath.rootId)
                 if (server == null) {
-                    logcat(LogPriority.WARN) { "LyricsReceiver: server not found rootId=${vPath.rootId}" }
+                    logcat(LogPriority.DEBUG) { "LyricsReceiver: server not found rootId=${vPath.rootId}" }
                     return@launch
                 }
                 val api = server.asAccessor(context)
@@ -71,7 +71,7 @@ class LyricsReceiver : BroadcastReceiver() {
                 PowerampAPIHelper.sendPAIntent(context, updateIntent)
                 logcat(LogPriority.DEBUG) { "LyricsReceiver: ACTION_UPDATE_LYRICS sent via sendPAIntent" }
             } catch (e: Exception) {
-                logcat(LogPriority.ERROR) { "LyricsReceiver: ${e.message}" }
+                logcat(LogPriority.WARN) { "LyricsReceiver: ${e.message}" }
             } finally {
                 pendingResult.finish()
             }
@@ -86,7 +86,7 @@ class LyricsReceiver : BroadcastReceiver() {
             rawPath.startsWith("@") -> {
                 val slashIdx = rawPath.indexOf('/', 1)
                 if (slashIdx < 0) {
-                    logcat(LogPriority.WARN) { "LyricsReceiver: malformed @path: $rawPath" }
+                    logcat(LogPriority.DEBUG) { "LyricsReceiver: malformed @path: $rawPath" }
                     return null
                 }
                 val rest = rawPath.substring(slashIdx + 1)

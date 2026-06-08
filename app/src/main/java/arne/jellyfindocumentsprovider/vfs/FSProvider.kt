@@ -2,7 +2,6 @@ package arne.jellyfindocumentsprovider.vfs
 
 import android.content.Context
 import android.graphics.Point
-import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
 import arne.jellyfindocumentsprovider.common.StatusEventManager
 import arne.jellyfindocumentsprovider.provider.asDocumentProjection
 import arne.jellyfindocumentsprovider.provider.emptyDirProjection
@@ -37,7 +36,7 @@ object FSProvider {
 
     fun getChildren(document: VPath): List<List<Pair<String, Any?>>> {
         val startTime = System.currentTimeMillis()
-        logcat(LogPriority.INFO) {
+        logcat(LogPriority.DEBUG) {
             "FSProvider.getChildren(parent = $document)"
         }
         val result = with(ObjectBox) {
@@ -76,32 +75,23 @@ object FSProvider {
 
     fun Context.thumbnailFromCacheOrRemote(doc: VPath, sizeHint: Point?): ByteArray? {
         val startTime = System.currentTimeMillis()
-        val vf = ObjectBox.virtualFile.findByDocumentId(doc.id) ?: return null.also { logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: no vf, took ${System.currentTimeMillis() - startTime}ms" } }
-        logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: vf found name=${vf.name} documentId=${vf.documentId}" }
+        val vf = ObjectBox.virtualFile.findByDocumentId(doc.id) ?: return null
         val tc =
             if (vf.albumId == null) vf.thumbCache else ObjectBox.albumInfo.findAlbumByUUID(vf.albumId)
                 .firstOrNull()?.thumbCache
 
-        logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc=${tc}, tc.target=${tc?.target}, notExists=${tc?.target?.notExists}" }
-        if (tc == null) {
-            logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: tc null, returning null, took ${System.currentTimeMillis() - startTime}ms" }
-            return null
-        }
+        if (tc == null) return null
 
         val uuid = vf.albumId ?: vf.documentId
-        logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: data in cache=${tc.target.data != null}, attempting download for uuid=$uuid" }
         val thumbCache = tc.target
         if (thumbCache.notExists) return null
 
         val cached = thumbCache.data
-        if (cached != null) {
-            logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: cached hit, took ${System.currentTimeMillis() - startTime}ms" }
-            return cached
-        }
+        if (cached != null) return cached
 
         val metaId = "thumb_$uuid"
         StatusEventManager.startMetadata(metaId, "Fetching thumbnail for ${vf.name}")
-        InMemoryLogBuffer.log(LogPriority.INFO, "Thumbnail", "Fetching thumbnail for ${vf.name} (uuid=$uuid)")
+        logcat("Thumbnail", LogPriority.INFO) { "Fetching thumbnail for ${vf.name} (uuid=$uuid)" }
 
         return runBlocking {
             try {
@@ -120,15 +110,14 @@ object FSProvider {
                     }
                 }
                 if (data != null) {
-                    InMemoryLogBuffer.log(LogPriority.INFO, "Thumbnail", "Thumbnail fetched for ${vf.name} (${data.size} bytes)")
+                    logcat("Thumbnail", LogPriority.INFO) { "Thumbnail fetched for ${vf.name} (${data.size} bytes)" }
                 } else {
-                    InMemoryLogBuffer.log(LogPriority.WARN, "Thumbnail", "No thumbnail available for ${vf.name}")
+                    logcat("Thumbnail", LogPriority.INFO) { "No thumbnail available for ${vf.name}" }
                 }
                 logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: remote fetch done, took ${System.currentTimeMillis() - startTime}ms, size=${data?.size ?: 0}" }
                 data
             } catch (e: Exception) {
-                InMemoryLogBuffer.log(LogPriority.ERROR, "Thumbnail", "Failed to download thumbnail for ${vf.name}: ${e.message}")
-                logcat(LogPriority.ERROR) { "Failed to download thumbnail for $uuid: ${e.message}" }
+                logcat("Thumbnail", LogPriority.ERROR) { "Failed to download thumbnail for ${vf.name}: ${e.message}" }
                 null
             } finally {
                 StatusEventManager.finishMetadata(metaId)
@@ -173,7 +162,7 @@ object FSProvider {
                             logcat(LogPriority.DEBUG) { "Lyrics cached for ${vf.documentId}" }
                         }
                     } catch (e: Exception) {
-                        logcat(LogPriority.WARN) { "Failed to cache lyrics for ${vf.documentId}: ${e.message}" }
+                        logcat(LogPriority.DEBUG) { "Failed to cache lyrics for ${vf.documentId}: ${e.message}" }
                     }
                 }
 

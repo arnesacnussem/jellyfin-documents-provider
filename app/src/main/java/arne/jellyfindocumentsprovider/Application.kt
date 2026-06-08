@@ -21,7 +21,7 @@ class Application : Application() {
         if (!isInitialized) {
             isInitialized = true
             LogcatLogger.install(InMemoryLogBuffer)
-            InMemoryLogBuffer.setUiLogLevel(LogPriority.INFO)
+            InMemoryLogBuffer.setUiLogLevel(LogPriority.VERBOSE)
             AppDependencies.init(this)
             RandomAccessBucket.init(applicationContext.cacheDir.toPath())
         }

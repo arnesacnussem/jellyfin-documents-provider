@@ -1,9 +1,10 @@
 package arne.jellyfindocumentsprovider.vfs
 
 import android.content.Context
-import android.util.Log
 import io.objectbox.Box
 import io.objectbox.BoxStore
+import logcat.LogPriority
+import logcat.logcat
 
 
 object ObjectBox {
@@ -31,7 +32,7 @@ object ObjectBox {
             val adminClass = Class.forName("io.objectbox.android.Admin")
             val admin = adminClass.getConstructor(BoxStore::class.java).newInstance(store)
             val started = adminClass.getMethod("start", Context::class.java).invoke(admin, context)
-            Log.i("ObjectBoxAdmin", "Started: $started")
+            logcat("ObjectBoxAdmin", LogPriority.INFO) { "Started: $started" }
         } catch (_: ClassNotFoundException) { }
 
         server = store.boxFor(JellyfinServer::class.java)

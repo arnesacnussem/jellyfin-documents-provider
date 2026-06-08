@@ -88,7 +88,7 @@ class FileByteReadChannelRandomAccess(
                             maxReadOffset = offset + bytesRead
                         }
                         if (waited > 0) {
-                            logcat(LogPriority.INFO) {
+                            logcat(LogPriority.VERBOSE) {
                                 "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (waited ${waited}ms, cache chunk ${chunk.first.readable}..${chunk.last.readable})"
                             }
                         } else {
@@ -110,7 +110,7 @@ class FileByteReadChannelRandomAccess(
 
             if (waited >= 2000 && waited % 2000 == 0) {
                 val elapsed = System.currentTimeMillis() - startTime
-                logcat(LogPriority.WARN) {
+                logcat(LogPriority.DEBUG) {
                     "[$traceId] read offset=${offset.readable} size=$size STALLED ${elapsed}ms, primary=${
                         primaryPos.readable
                     }, chunks=${
@@ -367,7 +367,7 @@ class FileByteReadChannelRandomAccess(
         try {
             cacheInfo.persistCallback?.invoke(cacheInfo.copy(chunks = cache))
         } catch (e: Exception) {
-            logcat(LogPriority.WARN) { "[$traceId] persistCacheInfo failed: ${e.message}" }
+            logcat(LogPriority.DEBUG) { "[$traceId] persistCacheInfo failed: ${e.javaClass.simpleName}: ${e.message}" }
         }
     }
 
@@ -376,7 +376,7 @@ class FileByteReadChannelRandomAccess(
             delay(10_000)
             val idleMs = System.currentTimeMillis() - lastReadTime
             if (idleMs > IDLE_TIMEOUT_MS) {
-                logcat(LogPriority.WARN) {
+                logcat(LogPriority.DEBUG) {
                     "[$traceId] idle for ${idleMs}ms (> ${IDLE_TIMEOUT_MS}ms), cancelling all downloads"
                 }
                 coroutineContext[Job]?.cancel()

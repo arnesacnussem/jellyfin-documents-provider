@@ -1,10 +1,9 @@
 package arne.jellyfindocumentsprovider.vfs
 
-import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
 import arne.jellyfindocumentsprovider.common.StatusEventManager
-import logcat.LogPriority
 import arne.jellyfindocumentsprovider.data.AppRepos
 import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toVirtualFile
+import logcat.LogPriority
 import logcat.logcat
 import org.jellyfin.sdk.model.api.BaseItemDto
 class DatabaseSyncTask(
@@ -19,20 +18,18 @@ class DatabaseSyncTask(
         val syncId = credential.uuid
         StatusEventManager.startSync(syncId, "[${credential.name}] starting sync...")
 
-        logcat {
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
             "[${credential.name}] syncing database for ${credential.info}"
         }
-        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] syncing database for ${credential.info}")
 
         onProgress("[1/3 getting total items to sync...]", 0, -1)
         val libraryTotal = credential.library.keys.associateWith {
             api.queryAudioItems(it, limit = 0)?.totalRecordCount ?: 0
         }
 
-        logcat {
-            "[${credential.name}] total items to sync: ${libraryTotal.size}"
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] total items to sync: ${libraryTotal.values.sum()}"
         }
-        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] total items to sync: ${libraryTotal.values.sum()}")
 
         val total = libraryTotal.values.sum()
         var proceed = 0
@@ -42,10 +39,9 @@ class DatabaseSyncTask(
         val existingThumbCaches = collectExistingThumbCaches()
 
         libraryTotal.forEach { (libId, libTotal) ->
-            logcat {
-                "[${credential.name}] syncing library: $libId"
+            logcat("DatabaseSyncTask", LogPriority.INFO) {
+                "[${credential.name}] syncing library: $libId ($libTotal items)"
             }
-            InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] syncing library: $libId ($libTotal items)")
 
             val fetchedItems = mutableListOf<BaseItemDto>()
             val fetchedAll = fetchItemsInBatches(libId = libId,
@@ -67,14 +63,9 @@ class DatabaseSyncTask(
                 })
 
             if (!fetchedAll) {
-                logcat(LogPriority.ERROR) {
+                logcat("DatabaseSyncTask", LogPriority.ERROR) {
                     "[${credential.name}] failed to fetch all items for library $libId; keeping existing data"
                 }
-                InMemoryLogBuffer.log(
-                    LogPriority.ERROR,
-                    "DatabaseSyncTask",
-                    "[${credential.name}] failed to fetch all items for library $libId; keeping existing data"
-                )
                 return@forEach
             }
 
@@ -85,10 +76,9 @@ class DatabaseSyncTask(
             }.toTypedArray())
         }
 
-        logcat {
-            "[${credential.name}] synced libraries, processing album info"
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] processing album info..."
         }
-        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] processing album info...")
         StatusEventManager.updateSync(syncId, "[${credential.name}] processing album info...", 1f)
 
         onProgress("3/3 processing album info...", 0, -1)
@@ -96,10 +86,9 @@ class DatabaseSyncTask(
         // Ensure ThumbCaches exist for all newly synced items, reusing cached thumbnail data
         ensureThumbCaches(existingThumbCaches)
 
-        logcat {
-            "[${credential.name}] processed album info"
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] sync complete"
         }
-        InMemoryLogBuffer.log(LogPriority.INFO, "DatabaseSyncTask", "[${credential.name}] sync complete")
         StatusEventManager.finishSync(syncId)
     }
 
@@ -135,7 +124,7 @@ class DatabaseSyncTask(
                     items.firstOrNull { it.album != null }?.name
                         ?: api.getItemNameById(album)
                 } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "ensureThumbCaches: failed to resolve album name for $album: ${e.message}" }
+                    logcat(LogPriority.DEBUG) { "ensureThumbCaches: failed to resolve album name for $album: ${e.message}" }
                     null
                 }
                 if (name != null) {

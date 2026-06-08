@@ -1,6 +1,5 @@
 package arne.jellyfindocumentsprovider.provider
 
-import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
 import arne.jellyfindocumentsprovider.hacks.readable
 import arne.jellyfindocumentsprovider.hacks.short
 import arne.jellyfindocumentsprovider.vfs.FileStreamFactory
@@ -49,7 +48,7 @@ object RandomAccessBucket {
             }
             mapper[key] = newRA
             refCnt[key] = 1
-            InMemoryLogBuffer.log(LogPriority.INFO, "Network", "Start streaming ${vf.name} (${vf.size.readable})")
+            logcat("Network", LogPriority.INFO) { "Start streaming ${vf.name} (${vf.size.readable})" }
             logcat(LogPriority.DEBUG) { "get(${key.short}): created [$traceId]" }
             return newRA
         }
@@ -59,12 +58,12 @@ object RandomAccessBucket {
         synchronized(this) {
             val current = refCnt.getOrDefault(key, 0)
             val after = current - 1
-            logcat(LogPriority.INFO) { "release(${key.short}): refCnt $current → $after" }
+            logcat(LogPriority.DEBUG) { "release(${key.short}): refCnt $current → $after" }
             if (after <= 0) {
                 refCnt.remove(key)
                 val remove = mapper.remove(key)
                 remove?.close()
-                InMemoryLogBuffer.log(LogPriority.INFO, "Network", "Stop streaming $key")
+                logcat("Network", LogPriority.INFO) { "Stop streaming $key" }
             } else {
                 refCnt[key] = after
             }

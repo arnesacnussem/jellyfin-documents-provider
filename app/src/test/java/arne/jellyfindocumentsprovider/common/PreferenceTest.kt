@@ -66,7 +66,7 @@ class PreferenceTest {
         assertEquals(BitrateLimits.K320.name, PrefKeys.BITRATE_LIMIT.defaultVal)
         assertEquals(BitrateLimitType.NONE.name, PrefKeys.BITRATE_LIMIT_TYPE.defaultVal)
         assertEquals(WaveType.REAL.name, PrefKeys.WAVE_TYPE.defaultVal)
-        assertEquals(LogPriority.DEBUG.name, PrefKeys.LOG_LEVEL.defaultVal)
+        assertEquals(LogPriority.INFO.name, PrefKeys.LOG_LEVEL.defaultVal)
     }
 
     @Test

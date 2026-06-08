@@ -46,24 +46,24 @@ class PlaybackReceiver : BroadcastReceiver() {
 
     private suspend fun onTrackChanged(context: Context, intent: Intent) {
         val track = intent.getBundleExtra(PowerampAPI.EXTRA_TRACK) ?: run {
-            logcat(LogPriority.WARN) { "PlaybackReceiver: no track bundle" }
+            logcat(LogPriority.DEBUG) { "PlaybackReceiver: no track bundle" }
             return
         }
         val rawPath = track.getString(PowerampAPI.Track.PATH) ?: run {
-            logcat(LogPriority.WARN) { "PlaybackReceiver: no PATH in track bundle" }
+            logcat(LogPriority.DEBUG) { "PlaybackReceiver: no PATH in track bundle" }
             return
         }
 
         val documentId = resolveDocumentId(rawPath) ?: return
         val vPath = documentId.toVPath()
         if (vPath !is VPath.File) {
-            logcat(LogPriority.WARN) { "PlaybackReceiver: not a file VPath: $documentId" }
+            logcat(LogPriority.DEBUG) { "PlaybackReceiver: not a file VPath: $documentId" }
             return
         }
 
         val rootId = vPath.rootId
         val server = ObjectBox.server.findByUUID(rootId) ?: run {
-            logcat(LogPriority.WARN) { "PlaybackReceiver: server not found rootId=$rootId" }
+            logcat(LogPriority.DEBUG) { "PlaybackReceiver: server not found rootId=$rootId" }
             return
         }
 
@@ -74,7 +74,7 @@ class PlaybackReceiver : BroadcastReceiver() {
                 try {
                     JellyfinAccessor(context, server).reportPlaybackStopped(oldId, oldSession)
                 } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "PlaybackReceiver: stop previous failed: ${e.message}" }
+                    logcat(LogPriority.DEBUG) { "PlaybackReceiver: stop previous failed: ${e.message}" }
                 }
             }
         }
@@ -90,7 +90,7 @@ class PlaybackReceiver : BroadcastReceiver() {
         try {
             JellyfinAccessor(context, server).reportPlaybackStart(itemId, sessionId)
         } catch (e: Exception) {
-            logcat(LogPriority.WARN) { "PlaybackReceiver: start failed: ${e.message}" }
+            logcat(LogPriority.DEBUG) { "PlaybackReceiver: start failed: ${e.message}" }
         }
     }
 
@@ -113,14 +113,14 @@ class PlaybackReceiver : BroadcastReceiver() {
                 isPaused = false
 
                 val server = ObjectBox.server.findByUUID(rootId) ?: run {
-                    logcat(LogPriority.WARN) { "PlaybackReceiver: server not found rootId=$rootId" }
+                    logcat(LogPriority.DEBUG) { "PlaybackReceiver: server not found rootId=$rootId" }
                     return
                 }
 
                 try {
                     JellyfinAccessor(context, server).reportPlaybackStopped(itemId, session, positionTicks)
                 } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "PlaybackReceiver: stop failed: ${e.message}" }
+                    logcat(LogPriority.DEBUG) { "PlaybackReceiver: stop failed: ${e.message}" }
                 }
             }
 
@@ -137,7 +137,7 @@ class PlaybackReceiver : BroadcastReceiver() {
                 try {
                     JellyfinAccessor(context, server).reportPlaybackProgress(itemId, session, positionTicks, isPaused = true)
                 } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "PlaybackReceiver: pause report failed: ${e.message}" }
+                    logcat(LogPriority.DEBUG) { "PlaybackReceiver: pause report failed: ${e.message}" }
                 }
             }
 
@@ -154,7 +154,7 @@ class PlaybackReceiver : BroadcastReceiver() {
                 try {
                     JellyfinAccessor(context, server).reportPlaybackProgress(itemId, session, positionTicks, isPaused = false)
                 } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "PlaybackReceiver: resume report failed: ${e.message}" }
+                    logcat(LogPriority.DEBUG) { "PlaybackReceiver: resume report failed: ${e.message}" }
                 }
             }
         }
@@ -168,7 +168,7 @@ class PlaybackReceiver : BroadcastReceiver() {
             rawPath.startsWith("@") -> {
                 val slashIdx = rawPath.indexOf('/', 1)
                 if (slashIdx < 0) {
-                    logcat(LogPriority.WARN) { "PlaybackReceiver: malformed @path: $rawPath" }
+                    logcat(LogPriority.DEBUG) { "PlaybackReceiver: malformed @path: $rawPath" }
                     return null
                 }
                 val rest = rawPath.substring(slashIdx + 1)

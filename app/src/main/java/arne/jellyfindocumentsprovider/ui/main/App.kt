@@ -1,6 +1,7 @@
 package arne.jellyfindocumentsprovider.ui.main
 
 import android.content.Intent
+import android.preference.PreferenceManager
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
@@ -65,7 +66,9 @@ import arne.jellyfindocumentsprovider.ServerWizardActivity
 import arne.jellyfindocumentsprovider.common.EventCategory
 import arne.jellyfindocumentsprovider.common.InMemoryLogBuffer
 import arne.jellyfindocumentsprovider.common.LocalSnackbarHostState
+import arne.jellyfindocumentsprovider.common.PrefKeys
 import arne.jellyfindocumentsprovider.common.StatusEventManager
+import arne.jellyfindocumentsprovider.common.getEnum
 import arne.jellyfindocumentsprovider.ui.components.StatusChips
 import arne.jellyfindocumentsprovider.ui.components.StatusDetailDialog
 import logcat.LogPriority
@@ -88,7 +91,12 @@ fun App(appViewModel: AppViewModel = viewModel()) {
     val sync by appViewModel.sync.collectAsState()
     val events by StatusEventManager.events.collectAsState()
     var detailCategory by remember { mutableStateOf<EventCategory?>(null) }
-    var logFilterLevel by remember { mutableStateOf(LogPriority.INFO) }
+    val prefs = remember { PreferenceManager.getDefaultSharedPreferences(context) }
+    var logFilterLevel by remember {
+        val saved = prefs.getEnum<LogPriority>(PrefKeys.LOG_LEVEL)
+        InMemoryLogBuffer.setUiLogLevel(saved)
+        mutableStateOf(saved)
+    }
     var showLogFilterMenu by remember { mutableStateOf(false) }
     LaunchedEffect(sync) {
         with(appViewModel) {
@@ -116,6 +124,8 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                                 text = { Text(level.name) },
                                 onClick = {
                                     logFilterLevel = level
+                                    InMemoryLogBuffer.setUiLogLevel(level)
+                                    prefs.edit().putString(PrefKeys.LOG_LEVEL.name, level.name).apply()
                                     showLogFilterMenu = false
                                 }
                             )

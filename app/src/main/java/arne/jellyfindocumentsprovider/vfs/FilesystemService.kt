@@ -34,7 +34,7 @@ class FilesystemService(
     }
 
     fun getChildren(document: VPath): List<List<Pair<String, Any?>>> {
-        logcat(LogPriority.INFO) { "FilesystemService.getChildren(parent = $document)" }
+        logcat(LogPriority.DEBUG) { "FilesystemService.getChildren(parent = $document)" }
         return when (document) {
             is VPath.User -> repos.server.findByUUID(document.id)
                 ?.getLibrariesProjection(document) ?: emptyList()

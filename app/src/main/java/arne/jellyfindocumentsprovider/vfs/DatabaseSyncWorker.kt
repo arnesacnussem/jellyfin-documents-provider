@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.preference.PreferenceManager
 import androidx.core.app.NotificationCompat
 import androidx.work.ForegroundInfo
 import androidx.work.Worker
@@ -11,6 +12,9 @@ import androidx.work.WorkerParameters
 import androidx.work.impl.utils.futures.SettableFuture
 import androidx.work.workDataOf
 import arne.jellyfindocumentsprovider.R
+import arne.jellyfindocumentsprovider.common.PowerampScanToggle
+import arne.jellyfindocumentsprovider.common.PrefKeys
+import arne.jellyfindocumentsprovider.common.getEnum
 import arne.jellyfindocumentsprovider.hacks.fromMap
 import arne.jellyfindocumentsprovider.hacks.toPropertyMap
 import arne.jellyfindocumentsprovider.ui.PROGRESS_NOTIFICATION_ID
@@ -57,7 +61,7 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
     private suspend fun sync(servers: List<JellyfinServer>): Result {
         if (servers.isEmpty()) {
-            logcat(LogPriority.ERROR) {
+            logcat(LogPriority.WARN) {
                 "some of the credential not found"
             }
             return Result.failure()
@@ -94,7 +98,10 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
 
         notificationManager.cancel(PROGRESS_NOTIFICATION_ID)
 
-        notifyPowerampScan(applicationContext)
+        val prefs = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        if (prefs.getEnum<PowerampScanToggle>(PrefKeys.POWERAMP_SCAN_ON_SYNC) == PowerampScanToggle.ENABLED) {
+            notifyPowerampScan(applicationContext)
+        }
 
         return Result.success()
     }
@@ -110,7 +117,7 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
             }
             context.startService(intent)
         } catch (e: Exception) {
-            logcat(LogPriority.WARN) { "notifyPowerampScan: ${e.message}" }
+            logcat(LogPriority.DEBUG) { "notifyPowerampScan: ${e.message}" }
         }
     }
 

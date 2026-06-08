@@ -137,7 +137,7 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
 
     override suspend fun getItemNameById(id: String): String? {
         val uuid = id.toUUID()
-        logcat(LogPriority.WARN) { "getItemNameById: id=$uuid" }
+        logcat(LogPriority.DEBUG) { "getItemNameById: id=$uuid" }
         return api.itemsApi.getItems(ids = setOfNotNull(uuid)).content.items?.firstOrNull()?.name
     }
 
@@ -150,7 +150,7 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
             val dto = api.lyricsApi.getLyrics(itemId.toUUID()).content
             dto?.toLrc()
         } catch (e: Exception) {
-            logcat(LogPriority.WARN) { "getLyrics($itemId): ${e.message}" }
+            logcat(LogPriority.DEBUG) { "getLyrics($itemId): ${e.message}" }
             null
         }
     }

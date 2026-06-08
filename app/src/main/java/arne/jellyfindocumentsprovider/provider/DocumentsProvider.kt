@@ -107,9 +107,9 @@ class DocumentsProvider : DocumentsProvider() {
         parentDocumentId: String?, projection: Array<String>?, sortOrder: String?
     ): Cursor {
         val startTime = System.currentTimeMillis()
-        logcat(LogPriority.INFO) { "queryChildDocuments: parent=$parentDocumentId, projection=${projection?.joinToString()}, sort=$sortOrder" }
+        logcat(LogPriority.DEBUG) { "queryChildDocuments: parent=$parentDocumentId, projection=${projection?.joinToString()}, sort=$sortOrder" }
         return if (parentDocumentId.isNullOrBlank()) {
-            logcat(LogPriority.WARN) {
+            logcat(LogPriority.DEBUG) {
                 "queryChildDocuments: parent id is null or blank"
             }
             getEmptyCursor(projection).also {
@@ -184,7 +184,7 @@ class DocumentsProvider : DocumentsProvider() {
     ): ParcelFileDescriptor? {
         val startTime = System.currentTimeMillis()
         val traceId = nextTraceId(documentId)
-        logcat(LogPriority.INFO) {
+        logcat(LogPriority.DEBUG) {
             "openDocument [$traceId] id=$documentId mode=$mode thread=${Thread.currentThread().name}"
         }
         val vPath = documentId.toVPath() ?: return null
@@ -196,7 +196,7 @@ class DocumentsProvider : DocumentsProvider() {
             }
         )
         if (factoryResult == null) {
-            logcat(LogPriority.WARN) { "openDocument [$traceId] no stream factory returned, took ${System.currentTimeMillis() - startTime}ms" }
+            logcat(LogPriority.DEBUG) { "openDocument [$traceId] no stream factory returned, took ${System.currentTimeMillis() - startTime}ms" }
             return null
         }
         val (fsf, vf, bps) = factoryResult

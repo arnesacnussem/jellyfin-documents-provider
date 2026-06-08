@@ -10,7 +10,7 @@ enum class PrefKeys(private val defaultEnum: Enum<*>, val asEnum: (name: String)
     BITRATE_LIMIT(BitrateLimits.K320, { BitrateLimits.valueOf(it) }),
     BITRATE_LIMIT_TYPE(BitrateLimitType.NONE, { BitrateLimitType.valueOf(it) }),
     WAVE_TYPE(WaveType.REAL, { WaveType.valueOf(it) }),
-    LOG_LEVEL(LogPriority.DEBUG, { LogPriority.valueOf(it) }),
+    LOG_LEVEL(LogPriority.INFO, { LogPriority.valueOf(it) }),
     POWERAMP_SCAN_ON_SYNC(PowerampScanToggle.DISABLED, { PowerampScanToggle.valueOf(it) });
 
     val defaultVal
