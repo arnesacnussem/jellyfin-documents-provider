@@ -25,21 +25,23 @@ The app syncs library metadata (albums, tracks, artwork) to a local database. Wh
 
 ## Features
 
-- [x] **DocumentsProvider** — browse Jellyfin media as a virtual filesystem via any file manager or music player
-- [x] **Multi-server / multi-account** — add multiple Jellyfin servers, each appearing as a separate filesystem root
-- [x] **Audio streaming** with configurable bitrate limiting (none / cellular / always; 64–320 Kbps)
-- [x] **Smart file caching** — chunk-based progressive download with overlap merging, parallel seek downloaders, and idle watchdog
-- [x] **Album art / thumbnail caching** — lazy on-demand fetch with in-flight request deduplication
-- [x] **Cache management UI** — view stats, per-item swipe-to-delete, and bulk cleanup
-- [x] **Database sync** — WorkManager foreground service with progress notification, batch fetching, and album grouping
-- [x] **Poweramp integration** — track provider with rich metadata columns, post-sync auto-rescan, playback scrobbling, and lyrics delivery
-- [x] **Lyrics support** — Jellyfin server-side lyrics fetched on-stream, converted to LRC, and delivered to Poweramp
-- [x] **In-app log viewer** — real-time ring buffer log with level filtering and auto-scroll
-- [x] **Live status monitoring** — sync, metadata fetch, and network download progress in the status bar
-- [x] **Secure token storage** — AES256-GCM encrypted token storage via EncryptedSharedPreferences
-- [x] **Quick Connect login** — scan a Jellyfin Quick Connect code instead of entering username/password
-- [x] **Poweramp favorite sync** — bidirectionally sync Jellyfin favorites with Poweramp ratings via per-track API and bulk DB push, with configurable toggles
-- [x] **In-app settings** — toggle Poweramp scan-on-sync, like-sync direction, bitrate limits, and logging level
+- [x] **DocumentsProvider** — browse Jellyfin media as a virtual filesystem in any file manager or music player
+- [x] **Multi-server** — add multiple Jellyfin servers, each as a separate filesystem root
+- [x] **Audio streaming** — stream music directly from Jellyfin with bitrate limiting
+- [x] **File caching** — progressive download caching for smooth playback and seeking
+- [x] **Album art / thumbnails** — lazy on-demand fetch with deduplication
+- [x] **Cache management** — view stats, per-item swipe-to-delete, and bulk cleanup
+- [x] **Database sync** — foreground sync with progress notification, batch fetching, album grouping, and favorites-only mode
+- [x] **Poweramp integration** — track provider, playback scrobbling, post-sync auto-rescan, and lyrics delivery
+- [x] **Bidirectional rating sync** — sync Jellyfin favorites ↔ Poweramp ratings, with configurable direction toggles
+- [x] **Lyrics support** — fetch Jellyfin server-side lyrics, convert to LRC, and deliver to Poweramp
+- [x] **Quick Connect login** — log in with a Jellyfin Quick Connect code
+- [x] **Secure token storage** — AES256-GCM encrypted tokens
+- [x] **In-app log viewer** — real-time log with level filtering and auto-scroll
+- [x] **Status monitoring** — in-app chips showing active sync, metadata, and network operations
+- [x] **Wave generation** — Poweramp waveform display for audio tracks
+- [x] **Server wizard** — step-by-step add-server flow with library selection
+- [x] **In-app settings** — toggle Poweramp scan-on-sync, like-sync direction, and log level filter
 - [ ] 401 / token expiry re-login
 - [ ] User-facing notifications (sync complete, errors)
 - [ ] Better UI polish
