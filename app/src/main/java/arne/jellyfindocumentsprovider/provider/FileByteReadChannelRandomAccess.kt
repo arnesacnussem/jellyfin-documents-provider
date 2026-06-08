@@ -87,15 +87,6 @@ class FileByteReadChannelRandomAccess(
                         if (offset + bytesRead > maxReadOffset) {
                             maxReadOffset = offset + bytesRead
                         }
-                        if (waited > 0) {
-                            logcat(LogPriority.VERBOSE) {
-                                "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (waited ${waited}ms, cache chunk ${chunk.first.readable}..${chunk.last.readable})"
-                            }
-                        } else {
-                            logcat(LogPriority.VERBOSE) {
-                                "[$traceId] read offset=${offset.readable} size=$size → $bytesRead (cache hit)"
-                            }
-                        }
                         return bytesRead
                     }
                 }
@@ -104,9 +95,9 @@ class FileByteReadChannelRandomAccess(
             synchronized(lock) {
                 if (closed) return -1
                 scheduleSeekDownload(offset)
-                lock.wait(200)
+                lock.wait(2000)
             }
-            waited += 200
+            waited += 2000
 
             if (waited >= 2000 && waited % 2000 == 0) {
                 val elapsed = System.currentTimeMillis() - startTime
@@ -208,7 +199,6 @@ class FileByteReadChannelRandomAccess(
                 }
                 val buf = ByteArray(32 * 1024)
 
-                var nextNotifyChunk = (pos / chunkSize).toLong()
                 var writeCount = 0L
                 var bytesThisSegment = 0L
                 var seekerDeferred = false
@@ -220,7 +210,7 @@ class FileByteReadChannelRandomAccess(
                     writeCount++
                     bytesThisSegment += n
                     synchronized(lock) { lock.notifyAll() }
-                    if (writeCount % 8L == 0L) {
+                    if (writeCount % 32L == 0L) {
                         persistCacheInfo()
                         val cached = bytesCached.get()
                         val pct = if (length > 0) cached.toFloat() / length else -1f
@@ -230,13 +220,6 @@ class FileByteReadChannelRandomAccess(
                     }
                     pos += n
                     primaryPos = pos
-                    val currentChunk = pos / chunkSize
-                    if (currentChunk != nextNotifyChunk) {
-                        nextNotifyChunk = currentChunk
-                        logcat(LogPriority.VERBOSE) {
-                            "[$traceId] primary ${pos.readable} (chunk $currentChunk, ${writeCount}w/${bytesThisSegment.readable} this segment)"
-                        }
-                    }
                     val seekerEnd =
                             synchronized(lock) {
                                 downloading.values.firstOrNull { pos in it }?.last
@@ -322,7 +305,7 @@ class FileByteReadChannelRandomAccess(
                 writeCount++
                 bytesThisSeg += n
                 synchronized(lock) { lock.notifyAll() }
-                if (writeCount % 8L == 0L) {
+                if (writeCount % 32L == 0L) {
                     persistCacheInfo()
                     val cached = bytesCached.get()
                     val pct = if (length > 0) cached.toFloat() / length else -1f
@@ -373,7 +356,7 @@ class FileByteReadChannelRandomAccess(
 
     private suspend fun runIdleWatchdog() {
         while (isActive) {
-            delay(10_000)
+            delay(30_000)
             val idleMs = System.currentTimeMillis() - lastReadTime
             if (idleMs > IDLE_TIMEOUT_MS) {
                 logcat(LogPriority.DEBUG) {

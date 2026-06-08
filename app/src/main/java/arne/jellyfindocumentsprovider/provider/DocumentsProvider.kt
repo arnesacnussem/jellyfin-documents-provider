@@ -74,7 +74,6 @@ class DocumentsProvider : DocumentsProvider() {
 
     override fun queryRoots(projection: Array<String>?): Cursor {
         val startTime = System.currentTimeMillis()
-        logcat { "queryRoots(): projection = $projection" }
         val result = if (ObjectBox.server.all.isEmpty()) MatrixCursor(
             projection ?: arrayOf(
                 Root.COLUMN_ROOT_ID,
@@ -88,18 +87,17 @@ class DocumentsProvider : DocumentsProvider() {
             )
         )
         else FSProvider.getRoots().asAndroidMatrixCursor()
-        logcat(LogPriority.DEBUG) { "queryRoots: done, took ${System.currentTimeMillis() - startTime}ms" }
+        logcat(LogPriority.DEBUG) { "queryRoots: ${result.count} roots, ${System.currentTimeMillis() - startTime}ms" }
         return result
     }
 
 
     override fun queryDocument(documentId: String?, projection: Array<String>?): Cursor {
         val startTime = System.currentTimeMillis()
-        logcat { "queryDocument: id=$documentId, projection=${projection?.joinToString()}" }
         val vPath =
-            documentId?.toVPath() ?: return getEmptyCursor(projection).also { logcat(LogPriority.DEBUG) { "queryDocument: done (empty), took ${System.currentTimeMillis() - startTime}ms" } }
+            documentId?.toVPath() ?: return getEmptyCursor(projection)
         val result = FSProvider.getOne(vPath).asAndroidMatrixCursor(projection)
-        logcat(LogPriority.DEBUG) { "queryDocument: done, took ${System.currentTimeMillis() - startTime}ms" }
+        logcat(LogPriority.DEBUG) { "queryDocument: ${documentId.short} → ${result.count} rows, ${System.currentTimeMillis() - startTime}ms" }
         return result
     }
 
@@ -107,36 +105,28 @@ class DocumentsProvider : DocumentsProvider() {
         parentDocumentId: String?, projection: Array<String>?, sortOrder: String?
     ): Cursor {
         val startTime = System.currentTimeMillis()
-        logcat(LogPriority.DEBUG) { "queryChildDocuments: parent=$parentDocumentId, projection=${projection?.joinToString()}, sort=$sortOrder" }
-        return if (parentDocumentId.isNullOrBlank()) {
-            logcat(LogPriority.DEBUG) {
-                "queryChildDocuments: parent id is null or blank"
-            }
-            getEmptyCursor(projection).also {
-                logcat(LogPriority.DEBUG) { "queryChildDocuments: done (empty), took ${System.currentTimeMillis() - startTime}ms" }
-            }
-        } else {
-            val vPath = parentDocumentId.toVPath() ?: return getEmptyCursor(projection).also {
-                logcat(LogPriority.DEBUG) { "queryChildDocuments: done (no vpath), took ${System.currentTimeMillis() - startTime}ms" }
-            }
-            val result = FSProvider.getChildren(vPath).asAndroidMatrixCursor(projection)
-            logcat(LogPriority.DEBUG) { "queryChildDocuments: done (${result.getCount()} rows), took ${System.currentTimeMillis() - startTime}ms" }
-            result
+        if (parentDocumentId.isNullOrBlank()) {
+            return getEmptyCursor(projection)
         }
+        val vPath = parentDocumentId.toVPath() ?: return getEmptyCursor(projection)
+        val result = FSProvider.getChildren(vPath).asAndroidMatrixCursor(projection)
+        logcat(LogPriority.DEBUG) { "queryChildDocuments: parent=$parentDocumentId → ${result.count} rows, ${System.currentTimeMillis() - startTime}ms" }
+        return result
     }
 
     override fun isChildDocument(parent: String?, document: String?): Boolean {
         val startTime = System.currentTimeMillis()
-        logcat { "isChildDocument(): parent = $parent, document = $document" }
-        val parentPath = parent.toVPath() ?: return false.also { logcat(LogPriority.DEBUG) { "isChildDocument: false (no parent), took ${System.currentTimeMillis() - startTime}ms" } }
-        var current = document.toVPath() ?: return false.also { logcat(LogPriority.DEBUG) { "isChildDocument: false (no doc), took ${System.currentTimeMillis() - startTime}ms" } }
+        val parentPath = parent.toVPath() ?: return false
+        var current = document.toVPath() ?: return false
         while (true) {
             if (current == parentPath) {
-                logcat(LogPriority.DEBUG) { "isChildDocument: true, took ${System.currentTimeMillis() - startTime}ms" }
+                logcat(LogPriority.DEBUG) { "isChildDocument: true, ${System.currentTimeMillis() - startTime}ms" }
                 return true
             }
-            current = current.parent() ?: return false.also { logcat(LogPriority.DEBUG) { "isChildDocument: false (no parent climb), took ${System.currentTimeMillis() - startTime}ms" } }
+            current = current.parent() ?: break
         }
+        logcat(LogPriority.DEBUG) { "isChildDocument: false, ${System.currentTimeMillis() - startTime}ms" }
+        return false
     }
 
     override fun openDocumentThumbnail(
@@ -145,10 +135,9 @@ class DocumentsProvider : DocumentsProvider() {
         signal: CancellationSignal?
     ): AssetFileDescriptor? {
         val startTime = System.currentTimeMillis()
-        logcat { "openDocumentThumbnail(${documentId.short}): sizeHint = $sizeHint" }
         val vPath = documentId.toVPath() ?: return null
         val thumbData = providerContext.thumbnailFromCacheOrRemote(vPath, sizeHint)
-        logcat(LogPriority.DEBUG) { "openDocumentThumbnail: result from FSProvider = ${thumbData != null} (size=${thumbData?.size ?: 0}) took ${System.currentTimeMillis() - startTime}ms" }
+        logcat(LogPriority.DEBUG) { "openDocumentThumbnail(${documentId.short}): result=${thumbData != null} size=${thumbData?.size ?: 0}, ${System.currentTimeMillis() - startTime}ms" }
         return thumbData
             ?.let { data ->
                 MemoryFileFD(data).use { mf ->
@@ -184,9 +173,6 @@ class DocumentsProvider : DocumentsProvider() {
     ): ParcelFileDescriptor? {
         val startTime = System.currentTimeMillis()
         val traceId = nextTraceId(documentId)
-        logcat(LogPriority.DEBUG) {
-            "openDocument [$traceId] id=$documentId mode=$mode thread=${Thread.currentThread().name}"
-        }
         val vPath = documentId.toVPath() ?: return null
         val factoryResult = providerContext.getAudioStreamFactory(
             vPath, when (bitrateLimitType) {
@@ -196,7 +182,7 @@ class DocumentsProvider : DocumentsProvider() {
             }
         )
         if (factoryResult == null) {
-            logcat(LogPriority.DEBUG) { "openDocument [$traceId] no stream factory returned, took ${System.currentTimeMillis() - startTime}ms" }
+            logcat(LogPriority.DEBUG) { "openDocument [$traceId] no stream factory, ${System.currentTimeMillis() - startTime}ms" }
             return null
         }
         val (fsf, vf, bps) = factoryResult
@@ -210,11 +196,11 @@ class DocumentsProvider : DocumentsProvider() {
                 proxy,
                 Handler(handlerThread.looper)
             ).also {
-                logcat(LogPriority.DEBUG) { "openDocument [$traceId] done, took ${System.currentTimeMillis() - startTime}ms" }
+                logcat(LogPriority.DEBUG) { "openDocument [$traceId] done, ${System.currentTimeMillis() - startTime}ms" }
             }
         } catch (e: Exception) {
             proxy.onRelease()
-            logcat(LogPriority.DEBUG) { "openDocument [$traceId] error: ${e.message}, took ${System.currentTimeMillis() - startTime}ms" }
+            logcat(LogPriority.DEBUG) { "openDocument [$traceId] error: ${e.message}, ${System.currentTimeMillis() - startTime}ms" }
             throw e
         }
     }

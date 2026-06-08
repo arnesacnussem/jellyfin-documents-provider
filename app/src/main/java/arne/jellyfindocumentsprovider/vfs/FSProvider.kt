@@ -42,9 +42,6 @@ object FSProvider {
 
     fun getChildren(document: VPath): List<List<Pair<String, Any?>>> {
         val startTime = System.currentTimeMillis()
-        logcat(LogPriority.DEBUG) {
-            "FSProvider.getChildren(parent = $document)"
-        }
         val result = with(ObjectBox) {
             when (document) {
                 is VPath.User -> server.findByUUID(document.id)?.getLibrariesProjection(document)
@@ -53,21 +50,17 @@ object FSProvider {
                 val serverId = server.findByUUID(document.userId)?.id ?: return emptyList()
                 val files = virtualFile.findAllByLibIdNotInAlbum(libId = document.id, serverId = serverId)
                 val albums = albumInfo.findAllAlbumByLibId(libId = document.id, serverId = serverId)
-                logcat { "FSProvider.getChildren Library: userId=${document.userId} serverId=$serverId files=${files.size} albums=${albums.size}" }
                 (files.map { it.asDocumentProjection() } + albums.map { it.asDocumentProjection(document) })
                 }
-
                 is VPath.Album -> {
                     val serverId = server.findByUUID(document.userId)?.id ?: return emptyList()
                     val files = virtualFile.findAllByAlbumId(document.id, serverId = serverId)
-                    logcat { "Album ${document.id}: ${files.size} files, types=${files.map { "${it.item.target.name}=${it.item.target.mimeType}" }}" }
                     files.map { it.asDocumentProjection() }
                 }
-
                 else -> TODO("Not yet implemented")
             }
         }
-        logcat(LogPriority.DEBUG) { "FSProvider.getChildren: done, took ${System.currentTimeMillis() - startTime}ms, rows=${result.size}" }
+        logcat(LogPriority.DEBUG) { "FSProvider.getChildren($document): ${result.size} rows, ${System.currentTimeMillis() - startTime}ms" }
         return result
     }
 
@@ -110,7 +103,6 @@ object FSProvider {
 
         val metaId = "thumb_$uuid"
         StatusEventManager.startMetadata(metaId, "Fetching thumbnail for ${item.name}")
-        logcat("Thumbnail", LogPriority.INFO) { "Fetching thumbnail for ${item.name} (uuid=$uuid)" }
 
         return runBlocking {
             try {
@@ -128,12 +120,10 @@ object FSProvider {
                         this.data = data
                     }
                 }
-                if (data != null) {
-                    logcat("Thumbnail", LogPriority.INFO) { "Thumbnail fetched for ${item.name} (${data.size} bytes)" }
-                } else {
-                    logcat("Thumbnail", LogPriority.INFO) { "No thumbnail available for ${item.name}" }
+                logcat("Thumbnail", LogPriority.INFO) {
+                    if (data != null) "Fetched ${item.name} (${data.size}B, ${System.currentTimeMillis() - startTime}ms)"
+                    else "No thumbnail for ${item.name}, ${System.currentTimeMillis() - startTime}ms"
                 }
-                logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: remote fetch done, took ${System.currentTimeMillis() - startTime}ms, size=${data?.size ?: 0}" }
                 data
             } catch (e: Exception) {
                 logcat("Thumbnail", LogPriority.ERROR) { "Failed to download thumbnail for ${item.name}: ${e.message}" }
