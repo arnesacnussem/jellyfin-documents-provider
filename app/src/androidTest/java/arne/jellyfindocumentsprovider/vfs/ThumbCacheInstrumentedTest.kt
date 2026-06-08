@@ -15,11 +15,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 
-/**
- * Instrumented tests verifying that thumbnail byte arrays stored in
- * ThumbCache are valid decodable images, and that the full
- * FSProvider.thumbnailFromCacheOrRemote flow returns usable bitmaps.
- */
 @RunWith(AndroidJUnit4::class)
 class ThumbCacheInstrumentedTest {
 
@@ -41,9 +36,6 @@ class ThumbCacheInstrumentedTest {
         }
     }
 
-    // ─── helpers ──────────────────────────────────────────────────
-
-    /** Generate a valid 1x1 red pixel PNG as a byte array. */
     private fun createValidPngBytes(): ByteArray {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         bitmap.setPixel(0, 0, Color.RED)
@@ -53,7 +45,6 @@ class ThumbCacheInstrumentedTest {
         return stream.toByteArray()
     }
 
-    /** Generate a valid 10x10 blue pixel JPEG byte array. */
     private fun createValidJpegBytes(): ByteArray {
         val bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
         bitmap.eraseColor(Color.BLUE)
@@ -62,8 +53,6 @@ class ThumbCacheInstrumentedTest {
         bitmap.recycle()
         return stream.toByteArray()
     }
-
-    // ─── ThumbCache entity + BitmapFactory ─────────────────────────
 
     @Test
     fun putAndRetrieve_validPng_decodesToBitmap() {
@@ -167,41 +156,36 @@ class ThumbCacheInstrumentedTest {
         val retrieved = thumbBox[thumb.id]
         assertNull("null data byte array", retrieved!!.data)
 
-        // BitmapFactory.decodeByteArray throws NPE on null data — verify it's null first
         try {
             BitmapFactory.decodeByteArray(retrieved.data, 0, 0)
             fail("Expected NullPointerException for null data")
         } catch (e: NullPointerException) {
-            // expected — Android BitmapFactory throws NPE on null byte array
         }
     }
-
-    // ─── FSProvider.thumbnailFromCacheOrRemote (app ObjectBox) ─────
 
     @Test
     fun fsProvider_cacheHit_returnsValidBitmap() {
         val docId = "thumb-instr-${System.nanoTime()}"
         val validPng = createValidPngBytes()
 
-        // Put ThumbCache into singleton ObjectBox
         val thumb = ThumbCache(data = validPng, checkedServer = true)
         appThumbBox().put(thumb)
 
-        // Put VirtualFile pointing to the ThumbCache
-        val vf = VirtualFile(
-            name = "test-thumb.mp3",
-            documentId = docId,
-            mimeType = "audio/mpeg",
-            displayName = "Test Thumb",
-            lastModified = System.currentTimeMillis(),
-            size = 1234L,
-            libId = "thumb-lib",
-            serverId = 1L,
+        val itemBox = ObjectBox.store.boxFor(ItemRecord::class.java)
+        val item = ItemRecord(
+            documentId = docId, name = "test-thumb.mp3", mimeType = "audio/mpeg",
+            displayName = "Test Thumb", lastModified = System.currentTimeMillis(), size = 1234L,
+            duration = null, year = null, title = null, album = null,
+            track = null, artist = null, bitrate = null, albumId = null, albumCoverTag = null,
             thumbCacheId = thumb.id,
-            duration = null, year = null, title = null,
-            album = null, track = null, artist = null, bitrate = null,
-            albumId = null, albumCoverTag = null
         )
+        item.thumbCache.target = thumb
+        itemBox.put(item)
+
+        val vf = VirtualFile(
+            documentId = docId, libId = "thumb-lib", serverId = 1L, albumId = null,
+        )
+        vf.item.target = item
         appVirtualFileBox().put(vf)
 
         try {
@@ -213,7 +197,6 @@ class ThumbCacheInstrumentedTest {
             }
             assertNotNull("thumbnailFromCacheOrRemote should return data on cache hit", result)
 
-            // Verify returned bytes can be decoded to a valid bitmap
             val bitmap = BitmapFactory.decodeByteArray(result, 0, result!!.size)
             assertNotNull("returned data should decode to valid Bitmap", bitmap)
             assertEquals(1, bitmap!!.width)
@@ -221,9 +204,9 @@ class ThumbCacheInstrumentedTest {
             assertEquals(Color.RED, bitmap.getPixel(0, 0))
             bitmap.recycle()
         } finally {
-            // Clean up from singleton ObjectBox
             removeVirtualFileByDocumentId(docId)
             appThumbBox().remove(thumb.id)
+            itemBox.remove(item.id)
         }
     }
 
@@ -243,24 +226,24 @@ class ThumbCacheInstrumentedTest {
     fun fsProvider_notExistsThumb_returnsNull() {
         val docId = "thumb-instr-ne-${System.nanoTime()}"
 
-        // ThumbCache with data=null, checkedServer=true → notExists
         val thumb = ThumbCache(data = null, checkedServer = true)
         appThumbBox().put(thumb)
 
-        val vf = VirtualFile(
-            name = "nonexists.mp3",
-            documentId = docId,
-            mimeType = "audio/mpeg",
-            displayName = "No Thumb",
-            lastModified = System.currentTimeMillis(),
-            size = 100L,
-            libId = "thumb-lib",
-            serverId = 1L,
+        val itemBox = ObjectBox.store.boxFor(ItemRecord::class.java)
+        val item = ItemRecord(
+            documentId = docId, name = "nonexists.mp3", mimeType = "audio/mpeg",
+            displayName = "No Thumb", lastModified = System.currentTimeMillis(), size = 100L,
+            duration = null, year = null, title = null, album = null,
+            track = null, artist = null, bitrate = null, albumId = null, albumCoverTag = null,
             thumbCacheId = thumb.id,
-            duration = null, year = null, title = null,
-            album = null, track = null, artist = null, bitrate = null,
-            albumId = null, albumCoverTag = null
         )
+        item.thumbCache.target = thumb
+        itemBox.put(item)
+
+        val vf = VirtualFile(
+            documentId = docId, libId = "thumb-lib", serverId = 1L, albumId = null,
+        )
+        vf.item.target = item
         appVirtualFileBox().put(vf)
 
         try {
@@ -274,10 +257,9 @@ class ThumbCacheInstrumentedTest {
         } finally {
             removeVirtualFileByDocumentId(docId)
             appThumbBox().remove(thumb.id)
+            itemBox.remove(item.id)
         }
     }
-
-    // ─── Helper access to singleton ObjectBox boxes ────────────────
 
     private fun appThumbBox() =
         ObjectBox.store.boxFor(ThumbCache::class.java)

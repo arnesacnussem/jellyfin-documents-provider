@@ -48,7 +48,7 @@ object RandomAccessBucket {
             }
             mapper[key] = newRA
             refCnt[key] = 1
-            logcat("Network", LogPriority.INFO) { "Start streaming ${vf.name} (${vf.size.readable})" }
+            logcat("Network", LogPriority.INFO) { "Start streaming ${vf.item.target.name} (${vf.item.target.size.readable})" }
             logcat(LogPriority.DEBUG) { "get(${key.short}): created [$traceId]" }
             return newRA
         }

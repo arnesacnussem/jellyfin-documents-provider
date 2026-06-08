@@ -172,7 +172,7 @@ class PlaybackReceiver : BroadcastReceiver() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         if (prefs.getEnum<SyncLikeToggle>(PrefKeys.SYNC_RATINGS_TO_JELLYFIN) != SyncLikeToggle.ENABLED) return
 
-        val vf = ObjectBox.virtualFile.findByDocumentId(vPath.id) ?: return
+        val vf = ObjectBox.virtualFile.findByDocumentId(vPath.id, server.id) ?: return
 
         val rating = try {
             val encodedProviderId = URLEncoder.encode(vf.providerId, "UTF-8")
@@ -196,13 +196,13 @@ class PlaybackReceiver : BroadcastReceiver() {
         if (vf.isFavorite == isFavorite) return
 
         logcat(LogPriority.INFO) {
-            "PlaybackReceiver: rating changed for ${vf.name}: isFavorite=$isFavorite"
+            "PlaybackReceiver: rating changed for ${vf.item.target.name}: isFavorite=$isFavorite"
         }
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val api = JellyfinAccessor(context, server)
-                if (isFavorite) api.markFavoriteItem(vf.documentId)
-                else api.unmarkFavoriteItem(vf.documentId)
+                if (isFavorite) api.markFavoriteItem(vf.item.target.documentId)
+                else api.unmarkFavoriteItem(vf.item.target.documentId)
                 ObjectBox.virtualFile.put(vf.copy(isFavorite = isFavorite))
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR) { "PlaybackReceiver: failed to update Jellyfin: ${e.message}" }

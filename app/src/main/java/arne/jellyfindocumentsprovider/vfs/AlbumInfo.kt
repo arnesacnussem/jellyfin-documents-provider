@@ -11,6 +11,7 @@ data class AlbumInfo(
     @Index val uuid: String = "",
     @Index val libId: String = "",
     val name: String = "",
+    @Index val serverId: Long = 0,
 ) {
     lateinit var thumbCache: ToOne<ThumbCache>
 }

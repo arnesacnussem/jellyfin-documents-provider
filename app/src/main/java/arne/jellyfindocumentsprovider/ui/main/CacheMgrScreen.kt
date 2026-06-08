@@ -107,20 +107,21 @@ fun CacheMgrScreen() {
                 val thumbLookup = thumbData.filter { it.data != null }.map { it.id }.toSet()
                 val cacheInfos = repos.cacheInfo.findAll()
                 cacheEntries = cacheInfos.mapNotNull { ci ->
-                    val vf = repos.virtualFile.findByDocumentId(ci.vfDocId)
+                    val vf = ci.virtualFile.target
                     if (vf != null) {
+                        val item = vf.item.target
                         val cachedSize = ci.chunks.sumOf { it.last - it.first + 1 }
                         CacheEntryDisplay(
                             id = ci.id,
-                            name = vf.displayName,
-                            fileSize = vf.size,
+                            name = item.displayName,
+                            fileSize = item.size,
                             cachedSize = cachedSize,
                             chunks = ci.chunks.toList(),
                             isComplete = ci.isCompleted ||
-                                (vf.size > 0 && ci.chunks.noGapsIn(0 until vf.size)),
+                                (item.size > 0 && ci.chunks.noGapsIn(0 until item.size)),
                             localPath = ci.localPath,
                             hasLyrics = ci.vfDocId in lyricsLookup,
-                            hasThumbnail = vf.thumbCacheId in thumbLookup,
+                            hasThumbnail = item.thumbCacheId in thumbLookup,
                         )
                     } else null
                 }

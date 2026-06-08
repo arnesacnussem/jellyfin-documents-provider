@@ -35,14 +35,14 @@ class FileByteReadChannelRandomAccess(
         private const val BUFFER_AHEAD = 16L * 1024L * 1024L
     }
 
-    override val length: Long = virtualFile.size
+    override val length: Long = virtualFile.item.target.size
     private val cacheInfo =
         ObjectBox.cacheInfo.getOrCreate(virtualFile, file.absolutePath).also {
             it.persistCallback = { ci -> ObjectBox.cacheInfo.put(ci) }
         }
     private val cache = cacheInfo.cacheFile
 
-    private val name: String = virtualFile.name
+    private val name: String = virtualFile.item.target.name
     private val docId = virtualFile.documentId
     private val bytesCached = AtomicLong(
         cache.sumOf { it.last - it.first + 1 }

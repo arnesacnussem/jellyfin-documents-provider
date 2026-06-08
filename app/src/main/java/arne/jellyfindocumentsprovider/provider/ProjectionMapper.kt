@@ -33,23 +33,23 @@ fun AlbumInfo.asDocumentProjection(library: VPath.Library): List<Pair<String, An
 }
 
 fun VirtualFile.asDocumentProjection(): List<Pair<String, Any?>> {
+    val item = item.target
     return listOfNotNull(
         Document.COLUMN_DOCUMENT_ID to providerId,
-        Document.COLUMN_DISPLAY_NAME to name,
-        Document.COLUMN_SIZE to size,
-        Document.COLUMN_MIME_TYPE to mimeType,
-        Document.COLUMN_LAST_MODIFIED to lastModified,
+        Document.COLUMN_DISPLAY_NAME to item.name,
+        Document.COLUMN_SIZE to item.size,
+        Document.COLUMN_MIME_TYPE to item.mimeType,
+        Document.COLUMN_LAST_MODIFIED to item.lastModified,
         Document.COLUMN_FLAGS to Document.FLAG_SUPPORTS_THUMBNAIL,
         TrackProviderConsts.COLUMN_FLAGS to TrackProviderConsts.FLAG_HAS_LYRICS,
 
-        // media info
-        AudioColumns.DURATION to duration,
-        AudioColumns.TITLE to title,
-        AudioColumns.ALBUM to album,
-        AudioColumns.TRACK to track,
-        AudioColumns.ARTIST to artist,
-        AudioColumns.BITRATE to bitrate,
-        AudioColumns.YEAR to year,
+        AudioColumns.DURATION to item.duration,
+        AudioColumns.TITLE to item.title,
+        AudioColumns.ALBUM to item.album,
+        AudioColumns.TRACK to item.track,
+        AudioColumns.ARTIST to item.artist,
+        AudioColumns.BITRATE to item.bitrate,
+        AudioColumns.YEAR to item.year,
         VirtualFile::isFavorite.name to isFavorite,
     )
 }

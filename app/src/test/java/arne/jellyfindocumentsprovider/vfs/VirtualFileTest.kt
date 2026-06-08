@@ -13,6 +13,7 @@ import org.junit.Test
 import java.time.LocalDateTime
 import java.util.UUID
 import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toVirtualFile
+import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toItemRecord
 
 class VirtualFileTest {
 
@@ -23,7 +24,6 @@ class VirtualFileTest {
 
     @Before
     fun setUp() {
-        // Pre-populate static mimeTypeCache to avoid Android MimeTypeMap stub in unit tests
         try {
             val field = VirtualFile::class.java.getDeclaredField("mimeTypeCache")
             field.isAccessible = true
@@ -80,23 +80,25 @@ class VirtualFileTest {
             mediaSources = listOf(mediaSource(container = "flac", size = 15_000_000L, bitrate = 1411))
         )
 
-        val vf = dto.toVirtualFile(credential, "lib-1")
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        val item = vf.item.target
 
-        assertEquals("Test Song", vf.name)
+        assertEquals("Test Song", item.name)
         assertEquals(dto.id!!.asString(), vf.documentId)
-        assertEquals("audio/flac", vf.mimeType)
-        assertEquals("Test Song", vf.displayName)
-        assertEquals(15_000_000L, vf.size)
-        assertEquals(500L, vf.duration)
-        assertEquals(2024, vf.year)
-        assertEquals("Test Song", vf.title)
-        assertEquals("Album Name", vf.album)
-        assertEquals(3, vf.track)
-        assertEquals("Artist Name", vf.artist)
-        assertEquals(1411, vf.bitrate)
+        assertEquals("audio/flac", item.mimeType)
+        assertEquals("Test Song", item.displayName)
+        assertEquals(15_000_000L, item.size)
+        assertEquals(500L, item.duration)
+        assertEquals(2024, item.year)
+        assertEquals("Test Song", item.title)
+        assertEquals("Album Name", item.album)
+        assertEquals(3, item.track)
+        assertEquals("Artist Name", item.artist)
+        assertEquals(1411, item.bitrate)
         assertEquals(dto.albumId!!.asString(), vf.albumId)
         assertEquals("lib-1", vf.libId)
-        assertEquals("tag-123", vf.albumCoverTag)
+        assertEquals("tag-123", item.albumCoverTag)
     }
 
     @Test
@@ -106,9 +108,9 @@ class VirtualFileTest {
             type = BaseItemKind.AUDIO, mediaType = MediaType.AUDIO,
             mediaSources = listOf(mediaSource(container = null))
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        // null container => key "null" in mimeTypeCache => getMimeTypeFromExtension(null) => null => "application/octet-stream"
-        assertEquals("application/octet-stream", vf.mimeType)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        assertEquals("application/octet-stream", vf.item.target.mimeType)
     }
 
     @Test
@@ -118,8 +120,9 @@ class VirtualFileTest {
             type = BaseItemKind.AUDIO, mediaType = MediaType.AUDIO,
             mediaSources = listOf(mediaSource(container = "xyzunknown"))
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        assertEquals("application/octet-stream", vf.mimeType)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        assertEquals("application/octet-stream", vf.item.target.mimeType)
     }
 
     @Test
@@ -129,8 +132,9 @@ class VirtualFileTest {
             type = BaseItemKind.AUDIO, mediaType = MediaType.AUDIO,
             mediaSources = listOf(mediaSource(container = "mp3"))
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        assertEquals("audio/mpeg", vf.mimeType)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        assertEquals("audio/mpeg", vf.item.target.mimeType)
     }
 
     @Test
@@ -140,8 +144,9 @@ class VirtualFileTest {
             type = BaseItemKind.AUDIO, mediaType = MediaType.AUDIO,
             mediaSources = null
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        assertEquals(0L, vf.size)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        assertEquals(0L, vf.item.target.size)
     }
 
     @Test
@@ -151,17 +156,19 @@ class VirtualFileTest {
             type = BaseItemKind.AUDIO, mediaType = MediaType.AUDIO,
             mediaSources = null
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        val item = vf.item.target
 
-        assertEquals("Unknown", vf.name)
+        assertEquals("Unknown", item.name)
         assertEquals(dto.id!!.asString(), vf.documentId)
-        assertEquals("application/octet-stream", vf.mimeType)
-        assertEquals(0L, vf.size)
-        assertEquals(0L, vf.duration)
-        assertEquals(0, vf.track)
-        assertEquals(0, vf.bitrate)
+        assertEquals("application/octet-stream", item.mimeType)
+        assertEquals(0L, item.size)
+        assertEquals(0L, item.duration)
+        assertEquals(0, item.track)
+        assertEquals(0, item.bitrate)
         assertNull(vf.albumId)
-        assertNull(vf.albumCoverTag)
+        assertNull(item.albumCoverTag)
     }
 
     @Test
@@ -174,10 +181,12 @@ class VirtualFileTest {
                 mediaSource(container = "mp3", size = 2000, bitrate = 320)
             )
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        assertEquals("audio/flac", vf.mimeType)
-        assertEquals(1000L, vf.size)
-        assertEquals(500, vf.bitrate)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        val item = vf.item.target
+        assertEquals("audio/flac", item.mimeType)
+        assertEquals(1000L, item.size)
+        assertEquals(500, item.bitrate)
     }
 
     @Test
@@ -188,8 +197,9 @@ class VirtualFileTest {
             artists = emptyList(),
             mediaSources = listOf(mediaSource(container = "mp3"))
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        assertEquals("", vf.artist)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        assertEquals("", vf.item.target.artist)
     }
 
     @Test
@@ -200,8 +210,9 @@ class VirtualFileTest {
             artists = listOf("Alice", "Bob"),
             mediaSources = listOf(mediaSource(container = "mp3"))
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
-        assertEquals("Alice, Bob", vf.artist)
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
+        assertEquals("Alice, Bob", vf.item.target.artist)
     }
 
     @Test
@@ -213,7 +224,8 @@ class VirtualFileTest {
             albumId = UUID.fromString("00000000-0000-0000-0000-0000000000aa"),
             mediaSources = listOf(mediaSource(container = "mp3"))
         )
-        val vf = dto.toVirtualFile(credential, "lib-1")
+        val itemRecord = dto.toItemRecord()
+        val vf = dto.toVirtualFile(credential, "lib-1", itemRecord)
         assertTrue(vf.providerId.isNotEmpty())
         assertTrue(vf.providerId.startsWith("user-1/lib-1/"))
         assertTrue(vf.providerId.contains("00000000-0000-0000-0000-000000000001"))

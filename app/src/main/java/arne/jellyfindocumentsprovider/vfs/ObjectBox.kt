@@ -23,6 +23,8 @@ object ObjectBox {
         private set
     lateinit var lyricsCache: Box<LyricsCache>
         private set
+    lateinit var itemRecord: Box<ItemRecord>
+        private set
 
     fun init(context: Context) {
         store = MyObjectBox.builder()
@@ -41,5 +43,6 @@ object ObjectBox {
         cacheInfo = store.boxFor(CacheInfo::class.java)
         thumbCache = store.boxFor(ThumbCache::class.java)
         lyricsCache = store.boxFor(LyricsCache::class.java)
+        itemRecord = store.boxFor(ItemRecord::class.java)
     }
 }

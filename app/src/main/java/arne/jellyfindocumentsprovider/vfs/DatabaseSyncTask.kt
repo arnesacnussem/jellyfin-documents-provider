@@ -8,6 +8,7 @@ import arne.jellyfindocumentsprovider.common.SyncLikeToggle
 import arne.jellyfindocumentsprovider.common.getEnum
 import arne.jellyfindocumentsprovider.data.AppRepos
 import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toVirtualFile
+import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toItemRecord
 import logcat.LogPriority
 import logcat.logcat
 import org.jellyfin.sdk.model.api.BaseItemDto
@@ -41,7 +42,6 @@ class DatabaseSyncTask(
         var proceed = 0
         onProgress("[1/3 getting total items to sync...$total]", 0, total)
 
-        // Preserve existing ThumbCaches before cleanup so we can reuse them
         val existingThumbCaches = collectExistingThumbCaches()
 
         libraryTotal.forEach { (libId, libTotal) ->
@@ -75,10 +75,19 @@ class DatabaseSyncTask(
                 return@forEach
             }
 
-            repos.virtualFile.removeByLibId(libId)
-            repos.albumInfo.removeByLibId(libId)
+            repos.virtualFile.removeByLibId(libId, credential.id)
+            repos.albumInfo.removeByLibId(libId, credential.id)
+
+            val itemRecordMap = HashMap<String, ItemRecord>()
+            for (item in fetchedItems) {
+                val documentId = item.id!!.asString()
+                val existing = repos.itemRecord.findByDocumentId(documentId)
+                itemRecordMap[documentId] = existing ?: item.toItemRecord().also { repos.itemRecord.put(it) }
+            }
+
             repos.virtualFile.put(*fetchedItems.map {
-                it.toVirtualFile(credential, libId)
+                val documentId = it.id!!.asString()
+                it.toVirtualFile(credential, libId, itemRecordMap[documentId]!!)
             }.toTypedArray())
         }
 
@@ -89,7 +98,6 @@ class DatabaseSyncTask(
 
         onProgress("3/3 processing album info...", 0, -1)
 
-        // Ensure ThumbCaches exist for all newly synced items, reusing cached thumbnail data
         ensureThumbCaches(existingThumbCaches)
 
         logcat("DatabaseSyncTask", LogPriority.INFO) {
@@ -182,18 +190,15 @@ class DatabaseSyncTask(
         }
     }
 
-    /**
-     * Collect all existing ThumbCache objects keyed by their UUID
-     * (item documentId for non-album items, album UUID for album items).
-     */
     private fun collectExistingThumbCaches(): Map<String, ThumbCache> {
         val caches = mutableMapOf<String, ThumbCache>()
         repos.virtualFile.findAll().forEach { vf ->
-            val uuid = vf.albumId ?: vf.documentId
-            val tc = if (vf.albumId != null) {
-                repos.albumInfo.findAlbumByUUID(vf.albumId).firstOrNull()?.thumbCache?.target
+            val item = vf.item.target ?: return@forEach
+            val uuid = item.albumId ?: vf.documentId
+            val tc = if (item.albumId != null) {
+                repos.albumInfo.findAlbumByUUID(item.albumId, vf.serverId).firstOrNull()?.thumbCache?.target
             } else {
-                vf.thumbCache.target
+                item.thumbCache.target
             }
             if (tc != null) {
                 caches[uuid] = tc
@@ -202,16 +207,18 @@ class DatabaseSyncTask(
         return caches
     }
 
-    /**
-     * Create ThumbCache entries for all VirtualFiles that don't have one yet,
-     * reusing any existing ThumbCaches found before the sync.
-     */
     private suspend fun ensureThumbCaches(existingThumbCaches: Map<String, ThumbCache>) {
+        val allVfs = repos.virtualFile.findAll()
+            .filter { it.serverId == credential.id && it.item.target != null }
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] ensureThumbCaches: total VFs=${allVfs.size}"
+        }
         val nameMap = mutableMapOf<String, String>()
-        repos.virtualFile.findAll().groupBy { it.albumId }.forEach { (album, items) ->
+        allVfs
+            .groupBy { it.item.target.albumId }.forEach { (album, items) ->
             if (album != null) {
                 val name = try {
-                    items.firstOrNull { it.album != null }?.name
+                    items.firstOrNull { it.item.target.album != null }?.item?.target?.name
                         ?: api.getItemNameById(album)
                 } catch (e: Exception) {
                     logcat(LogPriority.DEBUG) { "ensureThumbCaches: failed to resolve album name for $album: ${e.message}" }
@@ -223,13 +230,14 @@ class DatabaseSyncTask(
             }
         }
 
-        repos.virtualFile.findAll().groupBy { it.albumId }.forEach { (album, items) ->
+        allVfs
+            .groupBy { it.item.target.albumId }.forEach { (album, items) ->
             if (album == null) {
                 items.forEach { vf ->
                     val existing = existingThumbCaches[vf.documentId]
                     val tc = existing ?: ThumbCache()
                     if (existing == null) repos.thumbCache.put(tc)
-                    repos.virtualFile.put(vf.apply { vf.thumbCache.target = tc })
+                    repos.itemRecord.put(vf.item.target.apply { vf.item.target.thumbCache.target = tc })
                 }
                 return@forEach
             }
@@ -240,11 +248,17 @@ class DatabaseSyncTask(
             if (existing == null) repos.thumbCache.put(tc)
             repos.albumInfo.put(
                 AlbumInfo(
-                    uuid = album, name = name, libId = libId
+                    uuid = album, name = name, libId = libId, serverId = credential.id
                 ).apply {
                     thumbCache.target = tc
                 }
             )
+        }
+
+        val albumCount = allVfs.filter { it.item.target.albumId != null }
+            .groupBy { it.item.target.albumId }.size
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] ensureThumbCaches: albumCount=$albumCount serverId=${credential.id}"
         }
     }
 

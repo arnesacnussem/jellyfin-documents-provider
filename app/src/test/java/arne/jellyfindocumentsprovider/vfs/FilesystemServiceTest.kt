@@ -4,12 +4,14 @@ import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
 import arne.jellyfindocumentsprovider.data.AppRepos
 import arne.jellyfindocumentsprovider.data.repository.AlbumInfoRepository
+import arne.jellyfindocumentsprovider.data.repository.ItemRecordRepository
 import arne.jellyfindocumentsprovider.data.repository.ServerRepository
 import arne.jellyfindocumentsprovider.data.repository.VirtualFileRepository
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import io.objectbox.relation.ToOne
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
@@ -25,34 +27,40 @@ class FilesystemServiceTest {
         albumInfo = albumInfoRepo,
         cacheInfo = mockk(relaxed = true),
         thumbCache = mockk(relaxed = true),
+        itemRecord = mockk<ItemRecordRepository>(relaxed = true),
     )
     private val apiFactory = mockk<(JellyfinServer) -> JellyfinApi>(relaxed = true)
     private lateinit var service: FilesystemService
 
     private val server = JellyfinServer(
-        uuid = "user-1", url = "https://srv", serverName = "MySrv",
+        id = 1, uuid = "user-1", url = "https://srv", serverName = "MySrv",
         username = "alice", token = "tok",
         library = mapOf("lib-1" to "Music", "lib-2" to "Podcasts")
     )
 
-    private fun vf(
+    private fun mockVf(
         name: String, docId: String, mime: String, display: String,
         lastMod: Long = 0, size: Long = 0, libId: String = "lib-1",
-        albumId: String? = null
-    ) = VirtualFile(
-        name = name, documentId = docId, mimeType = mime,
-        displayName = display, lastModified = lastMod, size = size,
-        libId = libId, albumId = albumId,
-        duration = null, year = null, title = null, album = null,
-        track = null, artist = null, bitrate = null, albumCoverTag = null
-    )
+        albumId: String? = null, serverId: Long = 1
+    ): VirtualFile {
+        val itemRec = ItemRecord(
+            name = name, documentId = docId, mimeType = mime,
+            displayName = display, lastModified = lastMod, size = size,
+            albumId = albumId, duration = null, year = null, title = name,
+            album = null, track = null, artist = null, bitrate = null,
+            albumCoverTag = null,
+        )
+        val vf = VirtualFile(
+            documentId = docId, libId = libId, serverId = serverId, albumId = albumId,
+        )
+        vf.item.target = itemRec
+        return vf
+    }
 
     @Before
     fun setUp() {
         service = FilesystemService(repos, apiFactory)
     }
-
-    // ─── resolveName ──────────────────────────────────────────────
 
     @Test
     fun resolveName_user_returnsUsernameAtServerName() {
@@ -70,8 +78,9 @@ class FilesystemServiceTest {
 
     @Test
     fun resolveName_album_returnsAlbumName() {
-        every { albumInfoRepo.findAlbumByUUID("album-1") } returns listOf(
-            AlbumInfo(uuid = "album-1", name = "Greatest Hits", libId = "lib-1")
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { albumInfoRepo.findAlbumByUUID("album-1", 1L) } returns listOf(
+            AlbumInfo(uuid = "album-1", name = "Greatest Hits", libId = "lib-1", serverId = 1L)
         )
         val result = service.resolveName(VPath.Album("user-1", "lib-1", "album-1"))
         assertEquals("Greatest Hits", result)
@@ -79,7 +88,8 @@ class FilesystemServiceTest {
 
     @Test
     fun resolveName_file_returnsFileName() {
-        every { vfRepo.findByDocumentId("doc-1") } returns vf(
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns mockVf(
             name = "song.mp3", docId = "doc-1", mime = "audio/mpeg", display = "Song"
         )
         val result = service.resolveName(VPath.File("user-1", "lib-1", null, "doc-1"))
@@ -91,8 +101,6 @@ class FilesystemServiceTest {
         every { serverRepo.findByUUID("unknown") } returns null
         assertNull(service.resolveName(VPath.User("unknown")))
     }
-
-    // ─── getRoots ─────────────────────────────────────────────────
 
     @Test
     fun getRoots_emptyWhenNoServers() {
@@ -121,8 +129,6 @@ class FilesystemServiceTest {
         assertEquals(2, service.getRoots().size)
     }
 
-    // ─── getChildren ──────────────────────────────────────────────
-
     @Test
     fun getChildren_user_returnsLibraryProjections() {
         every { serverRepo.findByUUID("user-1") } returns server
@@ -141,11 +147,12 @@ class FilesystemServiceTest {
 
     @Test
     fun getChildren_library_returnsFilesAndAlbums() {
-        every { vfRepo.findAllByLibIdNotInAlbum("lib-1") } returns listOf(
-            vf(name = "track1.mp3", docId = "doc-1", mime = "audio/mpeg", display = "Track 1")
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findAllByLibIdNotInAlbum("lib-1", 1L) } returns listOf(
+            mockVf(name = "track1.mp3", docId = "doc-1", mime = "audio/mpeg", display = "Track 1")
         )
-        every { albumInfoRepo.findAllByLibId("lib-1") } returns listOf(
-            AlbumInfo(uuid = "album-1", name = "Album One", libId = "lib-1")
+        every { albumInfoRepo.findAllByLibId("lib-1", 1L) } returns listOf(
+            AlbumInfo(uuid = "album-1", name = "Album One", libId = "lib-1", serverId = 1L)
         )
 
         val children = service.getChildren(VPath.Library("user-1", "lib-1"))
@@ -154,15 +161,17 @@ class FilesystemServiceTest {
 
     @Test
     fun getChildren_library_emptyWhenNoFilesOrAlbums() {
-        every { vfRepo.findAllByLibIdNotInAlbum("lib-1") } returns emptyList()
-        every { albumInfoRepo.findAllByLibId("lib-1") } returns emptyList()
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findAllByLibIdNotInAlbum("lib-1", 1L) } returns emptyList()
+        every { albumInfoRepo.findAllByLibId("lib-1", 1L) } returns emptyList()
         assertTrue(service.getChildren(VPath.Library("user-1", "lib-1")).isEmpty())
     }
 
     @Test
     fun getChildren_album_returnsAlbumFiles() {
-        every { vfRepo.findAllByAlbumId("album-1") } returns listOf(
-            vf(name = "song.mp3", docId = "doc-1", mime = "audio/mpeg", display = "Song", albumId = "album-1")
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findAllByAlbumId("album-1", 1L) } returns listOf(
+            mockVf(name = "song.mp3", docId = "doc-1", mime = "audio/mpeg", display = "Song", albumId = "album-1")
         )
         val children = service.getChildren(VPath.Album("user-1", "lib-1", "album-1"))
         assertEquals(1, children.size)
@@ -171,7 +180,8 @@ class FilesystemServiceTest {
 
     @Test
     fun getChildren_album_emptyWhenNoFiles() {
-        every { vfRepo.findAllByAlbumId("empty-album") } returns emptyList()
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findAllByAlbumId("empty-album", 1L) } returns emptyList()
         assertTrue(service.getChildren(VPath.Album("user-1", "lib-1", "empty-album")).isEmpty())
     }
 
@@ -181,15 +191,14 @@ class FilesystemServiceTest {
         assertTrue(children.isEmpty())
     }
 
-    // ─── getOne ───────────────────────────────────────────────────
-
     @Test
     fun getOne_file_returnsDocumentProjection() {
-        val vfile = vf(
+        every { serverRepo.findByUUID("user-1") } returns server
+        val vfile = mockVf(
             name = "song.mp3", docId = "doc-1", mime = "audio/mpeg", display = "Song",
             lastMod = 1000, size = 500
         )
-        every { vfRepo.findByDocumentId("doc-1") } returns vfile
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns vfile
 
         val result = service.getOne(VPath.File("user-1", "lib-1", null, "doc-1"))
         assertEquals(1, result.size)
@@ -201,7 +210,7 @@ class FilesystemServiceTest {
 
     @Test
     fun getOne_fileNotFound_returnsEmptyDirProjection() {
-        every { vfRepo.findByDocumentId("unknown") } returns null
+        every { vfRepo.findByDocumentId("unknown", any()) } returns null
         every { serverRepo.findByUUID("user-1") } returns null
 
         val result = service.getOne(VPath.File("user-1", "lib-1", null, "unknown"))
@@ -218,18 +227,17 @@ class FilesystemServiceTest {
 
     @Test
     fun getOne_album_returnsDirProjection() {
-        every { albumInfoRepo.findAlbumByUUID("album-1") } returns listOf(
-            AlbumInfo(uuid = "album-1", name = "Hits", libId = "lib-1")
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { albumInfoRepo.findAlbumByUUID("album-1", 1L) } returns listOf(
+            AlbumInfo(uuid = "album-1", name = "Hits", libId = "lib-1", serverId = 1L)
         )
         val result = service.getOne(VPath.Album("user-1", "lib-1", "album-1"))
         assertEquals(1, result.size)
     }
 
-    // ─── thumbnailFromCacheOrRemote ──────────────────────────────
-
     @Test
     fun thumbnailFromCacheOrRemote_fileNotFound_returnsNull() {
-        every { vfRepo.findByDocumentId("unknown") } returns null
+        every { serverRepo.findByUUID("user-1") } returns null
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "unknown"), null
         )
@@ -238,14 +246,25 @@ class FilesystemServiceTest {
 
     @Test
     fun thumbnailFromCacheOrRemote_noThumbCache_returnsNull() {
-        val thumbFile = mockk<VirtualFile>(relaxed = true) {
-            every { documentId } returns "doc-1"
+        every { serverRepo.findByUUID("user-1") } returns server
+        val itemRec = mockk<ItemRecord>(relaxed = true) {
             every { albumId } returns null
             every { thumbCache } returns mockk {
                 every { target } returns ThumbCache(data = null, checkedServer = true)
             }
         }
-        every { vfRepo.findByDocumentId("doc-1") } returns thumbFile
+        val toOneItem = mockk<ToOne<ItemRecord>>(relaxed = true)
+        every { toOneItem.target } returns itemRec
+        val toOneServer = mockk<ToOne<JellyfinServer>>(relaxed = true)
+        every { toOneServer.target } returns server
+        val thumbFile = mockk<VirtualFile>(relaxed = true) {
+            every { documentId } returns "doc-1"
+            every { albumId } returns null
+            every { serverId } returns 1L
+            every { item } returns toOneItem
+            every { server } returns toOneServer
+        }
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns thumbFile
 
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "doc-1"), null
@@ -255,15 +274,23 @@ class FilesystemServiceTest {
 
     @Test
     fun thumbnailFromCacheOrRemote_cacheHit_returnsData() {
+        every { serverRepo.findByUUID("user-1") } returns server
         val thumbData = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
-        val vfile = mockk<VirtualFile>(relaxed = true) {
-            every { documentId } returns "doc-1"
+        val itemRec = mockk<ItemRecord>(relaxed = true) {
             every { albumId } returns null
             every { thumbCache } returns mockk {
                 every { target } returns ThumbCache(data = thumbData, checkedServer = true)
             }
         }
-        every { vfRepo.findByDocumentId("doc-1") } returns vfile
+        val toOneItem = mockk<ToOne<ItemRecord>>(relaxed = true)
+        every { toOneItem.target } returns itemRec
+        val vfile = mockk<VirtualFile>(relaxed = true) {
+            every { documentId } returns "doc-1"
+            every { albumId } returns null
+            every { serverId } returns 1L
+            every { item } returns toOneItem
+        }
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns vfile
 
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "doc-1"), null
@@ -274,18 +301,26 @@ class FilesystemServiceTest {
 
     @Test
     fun thumbnailFromCacheOrRemote_albumCacheHit_returnsData() {
+        every { serverRepo.findByUUID("user-1") } returns server
         val thumbData = byteArrayOf(1, 2, 3, 4, 5)
         val albumInfo = mockk<AlbumInfo>(relaxed = true) {
             every { thumbCache } returns mockk {
                 every { target } returns ThumbCache(data = thumbData, checkedServer = true)
             }
         }
+        val itemRec = mockk<ItemRecord>(relaxed = true) {
+            every { albumId } returns "album-1"
+        }
+        val toOneItem = mockk<ToOne<ItemRecord>>(relaxed = true)
+        every { toOneItem.target } returns itemRec
         val vfile = mockk<VirtualFile>(relaxed = true) {
             every { documentId } returns "doc-1"
             every { albumId } returns "album-1"
+            every { serverId } returns 1L
+            every { item } returns toOneItem
         }
-        every { vfRepo.findByDocumentId("doc-1") } returns vfile
-        every { albumInfoRepo.findAlbumByUUID("album-1") } returns listOf(albumInfo)
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns vfile
+        every { albumInfoRepo.findAlbumByUUID("album-1", 1L) } returns listOf(albumInfo)
 
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "doc-1"), null
@@ -296,25 +331,32 @@ class FilesystemServiceTest {
 
     @Test
     fun thumbnailFromCacheOrRemote_downloadsWhenNoData() {
+        every { serverRepo.findByUUID("user-1") } returns server
         val downloadedBytes = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47)
         val api = mockk<JellyfinApi>(relaxed = true)
         coEvery { api.downloadThumbnail("doc-1", any(), any()) } returns downloadedBytes
         every { apiFactory(any()) } returns api
 
         val tc = ThumbCache(data = null, checkedServer = false)
-        tc.persistCallback = { /* no-op — avoid ObjectBox call in unit test */ }
-        val serverMock = mockk<JellyfinServer>(relaxed = true)
-        val vfile = mockk<VirtualFile>(relaxed = true) {
-            every { documentId } returns "doc-1"
+        tc.persistCallback = { /* no-op */ }
+        val itemRec = mockk<ItemRecord>(relaxed = true) {
             every { albumId } returns null
             every { thumbCache } returns mockk {
                 every { target } returns tc
             }
-            every { server } returns mockk {
-                every { target } returns serverMock
-            }
         }
-        every { vfRepo.findByDocumentId("doc-1") } returns vfile
+        val toOneItem = mockk<ToOne<ItemRecord>>(relaxed = true)
+        every { toOneItem.target } returns itemRec
+        val toOneServer = mockk<ToOne<JellyfinServer>>(relaxed = true)
+        every { toOneServer.target } returns server
+        val vfile = mockk<VirtualFile>(relaxed = true) {
+            every { documentId } returns "doc-1"
+            every { albumId } returns null
+            every { serverId } returns 1L
+            every { item } returns toOneItem
+            every { server } returns toOneServer
+        }
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns vfile
 
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "doc-1"), null
@@ -328,23 +370,31 @@ class FilesystemServiceTest {
 
     @Test
     fun thumbnailFromCacheOrRemote_downloadFailed_returnsNull() {
+        every { serverRepo.findByUUID("user-1") } returns server
         val api = mockk<JellyfinApi>(relaxed = true)
         coEvery { api.downloadThumbnail(any(), any(), any()) } throws RuntimeException("network error")
         every { apiFactory(any()) } returns api
 
         val tc = ThumbCache(data = null, checkedServer = false)
         tc.persistCallback = { /* no-op */ }
-        val vfile = mockk<VirtualFile>(relaxed = true) {
-            every { documentId } returns "doc-1"
+        val itemRec = mockk<ItemRecord>(relaxed = true) {
             every { albumId } returns null
             every { thumbCache } returns mockk {
                 every { target } returns tc
             }
-            every { server } returns mockk {
-                every { target } returns mockk(relaxed = true)
-            }
         }
-        every { vfRepo.findByDocumentId("doc-1") } returns vfile
+        val toOneItem = mockk<ToOne<ItemRecord>>(relaxed = true)
+        every { toOneItem.target } returns itemRec
+        val toOneServer = mockk<ToOne<JellyfinServer>>(relaxed = true)
+        every { toOneServer.target } returns mockk(relaxed = true)
+        val vfile = mockk<VirtualFile>(relaxed = true) {
+            every { documentId } returns "doc-1"
+            every { albumId } returns null
+            every { serverId } returns 1L
+            every { item } returns toOneItem
+            every { server } returns toOneServer
+        }
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns vfile
 
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "doc-1"), null
@@ -355,34 +405,37 @@ class FilesystemServiceTest {
 
     @Test
     fun thumbnailFromCacheOrRemote_notCached_returnsNullWhenNotExists() {
-        // data=null + checkedServer=false -> notExists=false, but data is null
-        // No apiFactory setup means download will fail
+        every { serverRepo.findByUUID("user-1") } returns server
         val tc = ThumbCache(data = null, checkedServer = false)
         tc.persistCallback = { /* no-op */ }
-        val vfile = mockk<VirtualFile>(relaxed = true) {
-            every { documentId } returns "doc-1"
+        val itemRec = mockk<ItemRecord>(relaxed = true) {
             every { albumId } returns null
             every { thumbCache } returns mockk {
                 every { target } returns tc
             }
-            every { server } returns mockk {
-                every { target } returns mockk(relaxed = true)
-            }
         }
-        every { vfRepo.findByDocumentId("doc-1") } returns vfile
+        val toOneItem = mockk<ToOne<ItemRecord>>(relaxed = true)
+        every { toOneItem.target } returns itemRec
+        val toOneServer = mockk<ToOne<JellyfinServer>>(relaxed = true)
+        every { toOneServer.target } returns mockk(relaxed = true)
+        val vfile = mockk<VirtualFile>(relaxed = true) {
+            every { documentId } returns "doc-1"
+            every { albumId } returns null
+            every { serverId } returns 1L
+            every { item } returns toOneItem
+            every { server } returns toOneServer
+        }
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns vfile
 
         val result = service.thumbnailFromCacheOrRemote(
             VPath.File("user-1", "lib-1", null, "doc-1"), null
         )
-        // When no apiFactory mock is set and data is null, download attempt fails
         assertNull(result)
     }
 
-    // ─── streamThumbnail ──────────────────────────────────────────
-
     @Test
     fun streamThumbnail_fileNotFound_returnsNull() {
-        every { vfRepo.findByDocumentId("unknown") } returns null
+        every { serverRepo.findByUUID("user-1") } returns null
         val result = service.streamThumbnail(
             VPath.File("user-1", "lib-1", null, "unknown"), null
         )
@@ -391,15 +444,14 @@ class FilesystemServiceTest {
 
     @Test
     fun streamThumbnail_nonFile_returnsNull() {
+        every { serverRepo.findByUUID("user-1") } returns mockk()
         val result = service.streamThumbnail(VPath.User("user-1"), null)
         assertNull(result)
     }
 
-    // ─── getAudioStreamFactory ────────────────────────────────────
-
     @Test
     fun getAudioStreamFactory_fileNotFound_returnsNull() {
-        every { vfRepo.findByDocumentId("unknown") } returns null
+        every { serverRepo.findByUUID("user-1") } returns null
         val result = service.getAudioStreamFactory(
             VPath.File("user-1", "lib-1", null, "unknown"), 320
         )
@@ -412,13 +464,12 @@ class FilesystemServiceTest {
         assertNull(result)
     }
 
-    // ─── Verify repository calls ──────────────────────────────────
-
     @Test
     fun resolveName_file_callsFindByDocumentId() {
-        every { vfRepo.findByDocumentId("doc-1") } returns null
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findByDocumentId("doc-1", 1L) } returns null
         service.resolveName(VPath.File("user-1", "lib-1", null, "doc-1"))
-        verify(exactly = 1) { vfRepo.findByDocumentId("doc-1") }
+        verify(exactly = 1) { vfRepo.findByDocumentId("doc-1", 1L) }
     }
 
     @Test
@@ -430,12 +481,13 @@ class FilesystemServiceTest {
 
     @Test
     fun getChildren_library_correctQueries() {
-        every { vfRepo.findAllByLibIdNotInAlbum("lib-1") } returns emptyList()
-        every { albumInfoRepo.findAllByLibId("lib-1") } returns emptyList()
+        every { serverRepo.findByUUID("user-1") } returns server
+        every { vfRepo.findAllByLibIdNotInAlbum("lib-1", 1L) } returns emptyList()
+        every { albumInfoRepo.findAllByLibId("lib-1", 1L) } returns emptyList()
 
         service.getChildren(VPath.Library("user-1", "lib-1"))
 
-        verify(exactly = 1) { vfRepo.findAllByLibIdNotInAlbum("lib-1") }
-        verify(exactly = 1) { albumInfoRepo.findAllByLibId("lib-1") }
+        verify(exactly = 1) { vfRepo.findAllByLibIdNotInAlbum("lib-1", 1L) }
+        verify(exactly = 1) { albumInfoRepo.findAllByLibId("lib-1", 1L) }
     }
 }

@@ -10,10 +10,6 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import logcat.logcat
 
-/**
- * Injectable service for VFS queries. Uses repositories for persistence
- * and a JellyfinApi factory for remote data. No Context dependency.
- */
 class FilesystemService(
     private val repos: AppRepos,
     private val apiFactory: (JellyfinServer) -> JellyfinApi,
@@ -22,8 +18,14 @@ class FilesystemService(
         return when (vpath) {
             is VPath.User -> repos.server.findByUUID(vpath.id)?.let { "${it.name}@${it.serverName}" }
             is VPath.Library -> repos.server.findByLibraryId(vpath.id)?.library?.get(vpath.id)
-            is VPath.Album -> repos.albumInfo.findAlbumByUUID(vpath.id).firstOrNull()?.name
-            is VPath.File -> repos.virtualFile.findByDocumentId(vpath.id)?.name
+            is VPath.Album -> {
+                val serverId = repos.server.findByUUID(vpath.rootId)?.id ?: return null
+                repos.albumInfo.findAlbumByUUID(vpath.id, serverId).firstOrNull()?.name
+            }
+            is VPath.File -> {
+                val serverId = repos.server.findByUUID(vpath.rootId)?.id ?: return null
+                repos.virtualFile.findByDocumentId(vpath.id, serverId)?.item?.target?.name
+            }
         }
     }
 
@@ -39,15 +41,21 @@ class FilesystemService(
             is VPath.User -> repos.server.findByUUID(document.id)
                 ?.getLibrariesProjection(document) ?: emptyList()
 
-            is VPath.Library -> (
-                repos.virtualFile.findAllByLibIdNotInAlbum(libId = document.id)
-                    .map { it.asDocumentProjection() } +
-                repos.albumInfo.findAllByLibId(libId = document.id)
-                    .map { it.asDocumentProjection(document) }
-            )
+            is VPath.Library -> {
+                val serverId = repos.server.findByUUID(document.userId)?.id ?: return emptyList()
+                (
+                    repos.virtualFile.findAllByLibIdNotInAlbum(libId = document.id, serverId = serverId)
+                        .map { it.asDocumentProjection() } +
+                    repos.albumInfo.findAllByLibId(libId = document.id, serverId = serverId)
+                        .map { it.asDocumentProjection(document) }
+                )
+            }
 
-            is VPath.Album -> repos.virtualFile.findAllByAlbumId(document.id)
-                .map { it.asDocumentProjection() }
+            is VPath.Album -> {
+                val serverId = repos.server.findByUUID(document.userId)?.id ?: return emptyList()
+                repos.virtualFile.findAllByAlbumId(document.id, serverId = serverId)
+                    .map { it.asDocumentProjection() }
+            }
 
             is VPath.File -> emptyList()
         }
@@ -56,21 +64,28 @@ class FilesystemService(
     fun getOne(doc: VPath): List<List<Pair<String, Any?>>> {
         return listOf(
             when (doc) {
-                is VPath.File -> repos.virtualFile.findByDocumentId(doc.id)
-                    ?.asDocumentProjection() ?: emptyList()
+                is VPath.File -> {
+                    val serverId = repos.server.findByUUID(doc.rootId)?.id ?: 0L
+                    repos.virtualFile.findByDocumentId(doc.id, serverId)
+                        ?.asDocumentProjection() ?: emptyList()
+                }
                 else -> emptyDirProjection(doc.id, resolveName(doc) ?: "")
             }
         )
     }
 
     fun thumbnailFromCacheOrRemote(doc: VPath, sizeHint: Point?): ByteArray? {
-        val vf = repos.virtualFile.findByDocumentId(doc.id) ?: return null
-        val tc = if (vf.albumId == null) vf.thumbCache
-            else repos.albumInfo.findAlbumByUUID(vf.albumId).firstOrNull()?.thumbCache
+        if (doc !is VPath.File) return null
+        val serverId = repos.server.findByUUID(doc.rootId)?.id ?: return null
+        val vf = repos.virtualFile.findByDocumentId(doc.id, serverId) ?: return null
+
+        val item = vf.item.target
+        val tc = if (item.albumId == null) item.thumbCache
+            else repos.albumInfo.findAlbumByUUID(item.albumId, vf.serverId).firstOrNull()?.thumbCache
 
         if (tc == null) return null
 
-        val uuid = vf.albumId ?: vf.documentId
+        val uuid = item.albumId ?: vf.documentId
         val thumbCache = tc.target
         if (thumbCache.notExists) return null
 
@@ -99,7 +114,8 @@ class FilesystemService(
     fun streamThumbnail(doc: VPath, sizeHint: Point?): JellyfinApi.Stream? {
         return when (doc) {
             is VPath.File -> {
-                val vf = repos.virtualFile.findByDocumentId(doc.id) ?: return null
+                val serverId = repos.server.findByUUID(doc.rootId)?.id ?: return null
+                val vf = repos.virtualFile.findByDocumentId(doc.id, serverId) ?: return null
                 val api = apiFactory(vf.server.target)
                 runBlocking {
                     api.streamThumbnail(vf.documentId, sizeHint?.x, sizeHint?.y)
@@ -110,12 +126,11 @@ class FilesystemService(
     }
 
     fun getAudioStreamFactory(doc: VPath, bps: Int?): Triple<FileStreamFactory, VirtualFile, Int>? {
-        if (doc is VPath.File) {
-            val vf = repos.virtualFile.findByDocumentId(doc.id) ?: return null
-            val api = apiFactory(vf.server.target)
-            val fsf = runBlocking { api.getAudioStreamFactory(doc.id, bps ?: -1) }
-            return Triple(fsf, vf, bps ?: -1)
-        }
-        return null
+        if (doc !is VPath.File) return null
+        val serverId = repos.server.findByUUID(doc.rootId)?.id ?: return null
+        val vf = repos.virtualFile.findByDocumentId(doc.id, serverId) ?: return null
+        val api = apiFactory(vf.server.target)
+        val fsf = runBlocking { api.getAudioStreamFactory(doc.id, bps ?: -1) }
+        return Triple(fsf, vf, bps ?: -1)
     }
 }

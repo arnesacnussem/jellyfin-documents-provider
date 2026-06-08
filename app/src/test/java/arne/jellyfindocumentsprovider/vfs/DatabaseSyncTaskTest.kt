@@ -20,6 +20,7 @@ class DatabaseSyncTaskTest {
     private val vfRepo = mockk<VirtualFileRepository>(relaxed = true)
     private val albumInfoRepo = mockk<AlbumInfoRepository>(relaxed = true)
     private val thumbCacheRepo = mockk<ThumbCacheRepository>(relaxed = true)
+    private val itemRecordRepo = mockk<ItemRecordRepository>(relaxed = true)
     private val context = mockk<Context>(relaxed = true)
 
     private val repos = AppRepos(
@@ -28,10 +29,11 @@ class DatabaseSyncTaskTest {
         albumInfo = albumInfoRepo,
         cacheInfo = mockk(relaxed = true),
         thumbCache = thumbCacheRepo,
+        itemRecord = itemRecordRepo,
     )
 
     private val credential = JellyfinServer(
-        uuid = "u1", url = "https://srv", serverName = "Srv",
+        id = 42, uuid = "u1", url = "https://srv", serverName = "Srv",
         username = "user", token = "tok", library = mapOf("lib1" to "Music")
     )
 
@@ -48,10 +50,36 @@ class DatabaseSyncTaskTest {
     private fun queryResult(total: Int, items: List<BaseItemDto> = emptyList(), startIndex: Int = 0) =
         BaseItemDtoQueryResult(items = items, totalRecordCount = total, startIndex = startIndex)
 
+    private fun makeItemRecord(
+        documentId: String = "d1", name: String = "Song",
+        albumId: String? = null, album: String? = null
+    ): ItemRecord {
+        val item = ItemRecord(
+            documentId = documentId, name = name, mimeType = "audio/mpeg",
+            displayName = name, lastModified = 0, size = 100,
+            duration = null, year = null, title = name,
+            album = album, track = null, artist = null,
+            bitrate = null, albumId = albumId, albumCoverTag = null,
+        )
+        return item
+    }
+
+    private fun makeVirtualFile(
+        documentId: String = "d1", libId: String = "lib1",
+        albumId: String? = null
+    ): VirtualFile {
+        val item = makeItemRecord(documentId = documentId, albumId = albumId)
+        return VirtualFile(
+            documentId = documentId, libId = libId, serverId = credential.id,
+            albumId = albumId,
+        ).also { it.item.target = item }
+    }
+
     @Test
     fun sync_emptyLibrary_noErrors() {
         coEvery { api.queryAudioItems("lib1", limit = 0) } returns queryResult(0)
         every { vfRepo.findAll() } returns emptyList()
+        every { itemRecordRepo.findByDocumentId(any()) } returnsMany listOf(null)
 
         val progress = mutableListOf<String>()
         runBlocking { task.sync { text, _, _ -> progress.add(text) } }
@@ -67,11 +95,13 @@ class DatabaseSyncTaskTest {
             listOf(audioItem(name = "Song 1"), audioItem(name = "Song 2")))
         every { vfRepo.findAll() } returns emptyList()
         every { vfRepo.put(any<VirtualFile>()) } just Runs
+        every { itemRecordRepo.findByDocumentId(any()) } returnsMany listOf(null, null)
+        every { itemRecordRepo.put(any<ItemRecord>()) } just Runs
 
         runBlocking { task.sync { _, _, _ -> } }
 
-        verify(exactly = 1) { vfRepo.removeByLibId("lib1") }
-        verify(exactly = 1) { albumInfoRepo.removeByLibId("lib1") }
+        verify(exactly = 1) { vfRepo.removeByLibId("lib1", credential.id) }
+        verify(exactly = 1) { albumInfoRepo.removeByLibId("lib1", credential.id) }
     }
 
     @Test
@@ -84,6 +114,8 @@ class DatabaseSyncTaskTest {
         coEvery { api.queryAudioItems("lib1", 2000, 1000) } returns queryResult(500, (2001..2500).map { audioItem() })
         every { vfRepo.put(any<VirtualFile>()) } just Runs
         every { vfRepo.findAll() } returns emptyList()
+        every { itemRecordRepo.findByDocumentId(any()) } returnsMany listOf(null)
+        every { itemRecordRepo.put(any<ItemRecord>()) } just Runs
 
         runBlocking { task.sync(batchSize = 1000) { _, _, _ -> } }
 
@@ -99,6 +131,8 @@ class DatabaseSyncTaskTest {
             (1..3).map { audioItem() })
         every { vfRepo.put(any<VirtualFile>()) } just Runs
         every { vfRepo.findAll() } returns emptyList()
+        every { itemRecordRepo.findByDocumentId(any()) } returnsMany listOf(null)
+        every { itemRecordRepo.put(any<ItemRecord>()) } just Runs
 
         val progressTexts = mutableListOf<String>()
         runBlocking { task.sync { text, _, _ -> progressTexts.add(text) } }
@@ -120,20 +154,12 @@ class DatabaseSyncTaskTest {
         every { vfRepo.put(any<VirtualFile>()) } just Runs
         every { thumbCacheRepo.put(any()) } just Runs
         every { albumInfoRepo.put(any()) } just Runs
+        every { itemRecordRepo.findByDocumentId(any()) } returnsMany listOf(null)
+        every { itemRecordRepo.put(any<ItemRecord>()) } just Runs
 
-        // findAll returns the saved files with albumId
-        every { vfRepo.findAll() } returns listOf(
-            VirtualFile(name = "Track 1", documentId = "d1", mimeType = "audio/mpeg",
-                displayName = "Track 1", lastModified = 0, size = 100, libId = "lib1",
-                albumId = albumId.asString(), album = "Album Name",
-                duration = null, year = null, title = null,
-                track = null, artist = null, bitrate = null, albumCoverTag = null),
-            VirtualFile(name = "Track 2", documentId = "d2", mimeType = "audio/mpeg",
-                displayName = "Track 2", lastModified = 0, size = 200, libId = "lib1",
-                albumId = albumId.asString(), album = "Album Name",
-                duration = null, year = null, title = null,
-                track = null, artist = null, bitrate = null, albumCoverTag = null),
-        )
+        val vf1 = makeVirtualFile(documentId = "d1", albumId = albumId.asString())
+        val vf2 = makeVirtualFile(documentId = "d2", albumId = albumId.asString())
+        every { vfRepo.findAll() } returns listOf(vf1, vf2)
 
         runBlocking { task.sync { _, _, _ -> } }
 
@@ -150,7 +176,6 @@ class DatabaseSyncTaskTest {
 
         runBlocking { task.sync { _, _, _ -> } }
 
-        // Should not crash, just stop after first null batch
         coVerify(exactly = 1) { api.queryAudioItems("lib1", 0, 1000) }
     }
 
@@ -161,12 +186,10 @@ class DatabaseSyncTaskTest {
             listOf(audioItem(name = "NoAlbumTrack")))
         every { vfRepo.put(any<VirtualFile>()) } just Runs
         every { thumbCacheRepo.put(any()) } just Runs
+        every { itemRecordRepo.findByDocumentId(any()) } returns null
+        every { itemRecordRepo.put(any<ItemRecord>()) } just Runs
 
-        val savedVf = VirtualFile(
-            name = "NoAlbumTrack", documentId = "d1", mimeType = "audio/mpeg",
-            displayName = "NoAlbumTrack", lastModified = 0, size = 100, libId = "lib1",
-            duration = null, year = null, title = null, album = null,
-            track = null, artist = null, bitrate = null, albumId = null, albumCoverTag = null)
+        val savedVf = makeVirtualFile(documentId = "d1")
         every { vfRepo.findAll() } returns listOf(savedVf)
 
         runBlocking { task.sync { _, _, _ -> } }

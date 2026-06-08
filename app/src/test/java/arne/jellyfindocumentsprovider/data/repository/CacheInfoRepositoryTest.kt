@@ -1,6 +1,7 @@
 package arne.jellyfindocumentsprovider.data.repository
 
 import arne.jellyfindocumentsprovider.vfs.CacheInfo
+import arne.jellyfindocumentsprovider.vfs.ItemRecord
 import arne.jellyfindocumentsprovider.vfs.MyObjectBox
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
 import io.objectbox.BoxStore
@@ -25,13 +26,22 @@ class CacheInfoRepositoryTest {
         store.close()
     }
 
-    private fun createVf(docId: String = "doc-1") = VirtualFile(
-        name = "test.mp3", documentId = docId, mimeType = "audio/mpeg",
-        displayName = "test", lastModified = 1000L, size = 5000L,
-        libId = "lib-1", serverId = 1L, albumId = null, albumCoverTag = null,
-        duration = null, year = null, title = null, album = null,
-        track = null, artist = null, bitrate = null
-    )
+    private fun createVf(docId: String = "doc-1"): VirtualFile {
+        val itemBox = store.boxFor(ItemRecord::class.java)
+        val item = ItemRecord(
+            documentId = docId, name = "test.mp3", mimeType = "audio/mpeg",
+            displayName = "test", lastModified = 1000L, size = 5000L,
+            duration = null, year = null, title = null, album = null,
+            track = null, artist = null, bitrate = null,
+            albumId = null, albumCoverTag = null,
+        )
+        itemBox.put(item)
+        val vf = VirtualFile(
+            documentId = docId, libId = "lib-1", serverId = 1L, albumId = null,
+        )
+        vf.item.target = item
+        return vf
+    }
 
     @Test
     fun getOrCreate_createsNew() {

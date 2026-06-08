@@ -28,7 +28,7 @@ data class CacheInfo(
 ) : Closeable {
     lateinit var virtualFile: ToOne<VirtualFile>
     val isComplete
-        get() = isCompleted or chunks.noGapsIn(0 until virtualFile.target.size)
+        get() = isCompleted or chunks.noGapsIn(0 until virtualFile.target.item.target.size)
 
     @Transient
     var persistCallback: ((CacheInfo) -> Unit)? = null

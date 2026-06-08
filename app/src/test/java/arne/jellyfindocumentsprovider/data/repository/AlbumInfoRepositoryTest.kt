@@ -24,47 +24,50 @@ class AlbumInfoRepositoryTest {
         store.close()
     }
 
+    private fun album(uuid: String, name: String, libId: String, serverId: Long = 1L) =
+        AlbumInfo(uuid = uuid, name = name, libId = libId, serverId = serverId)
+
     @Test
     fun findAllByLibId_returnsCorrect() {
         repo.put(
-            AlbumInfo(uuid = "uuid-1", name = "Album 1", libId = "lib-1"),
-            AlbumInfo(uuid = "uuid-2", name = "Album 2", libId = "lib-1"),
-            AlbumInfo(uuid = "uuid-3", name = "Album 3", libId = "lib-2")
+            album("uuid-1", "Album 1", "lib-1", 1L),
+            album("uuid-2", "Album 2", "lib-1", 1L),
+            album("uuid-3", "Album 3", "lib-2", 2L)
         )
-        assertEquals(2, repo.findAllByLibId("lib-1").size)
-        assertEquals(1, repo.findAllByLibId("lib-2").size)
+        assertEquals(2, repo.findAllByLibId("lib-1", 1L).size)
+        assertEquals(1, repo.findAllByLibId("lib-2", 2L).size)
     }
 
     @Test
     fun findAlbumByUUID_returnsCorrect() {
-        repo.put(AlbumInfo(uuid = "uuid-1", name = "Album 1", libId = "lib-1"))
-        val found = repo.findAlbumByUUID("uuid-1")
+        repo.put(album("uuid-1", "Album 1", "lib-1", 1L))
+        val found = repo.findAlbumByUUID("uuid-1", 1L)
         assertEquals(1, found.size)
         assertEquals("Album 1", found.first().name)
     }
 
     @Test
     fun findAlbumByUUID_notFound() {
-        assertEquals(0, repo.findAlbumByUUID("nonexistent").size)
+        assertEquals(0, repo.findAlbumByUUID("nonexistent", 1L).size)
     }
 
     @Test
     fun put_allPersisted() {
         repo.put(
-            AlbumInfo(uuid = "uuid-1", name = "A1", libId = "l1"),
-            AlbumInfo(uuid = "uuid-2", name = "A2", libId = "l1")
+            album("uuid-1", "A1", "l1", 1L),
+            album("uuid-2", "A2", "l1", 1L)
         )
-        assertEquals(2, repo.findAllByLibId("l1").size)
+        assertEquals(2, repo.findAllByLibId("l1", 1L).size)
     }
 
     @Test
     fun removeByLibId_removesCorrect() {
         repo.put(
-            AlbumInfo(uuid = "uuid-1", name = "A1", libId = "lib-1"),
-            AlbumInfo(uuid = "uuid-2", name = "A2", libId = "lib-2")
+            album("uuid-1", "A1", "lib-1", 1L),
+            album("uuid-2", "A2", "lib-2", 1L)
         )
-        repo.removeByLibId("lib-1")
-        assertEquals(0, repo.findAllByLibId("lib-1").size)
-        assertEquals(1, repo.findAllByLibId("lib-2").size)
+        repo.removeByLibId("lib-1", 1L)
+        assertEquals(0, repo.findAllByLibId("lib-1", 1L).size)
+        assertEquals(1, repo.findAllByLibId("lib-2", 1L).size)
     }
 }

@@ -178,7 +178,7 @@ class DownloadLatencyTest {
         val vf = files.firstOrNull { it.documentId == itemId && it.serverId == accessor.credential.id }
         assertNotNull("file not found in repo", vf)
 
-        val size = vf!!.size
+        val size = vf!!.item.target.size
         assertTrue("file size must be > 0", size > 0)
 
         // Request last 64KB
@@ -296,7 +296,7 @@ class DownloadLatencyTest {
             fail("no audio files found for server id=$serverObjectBoxId")
         }
         val file = audioFile!!
-        Log.i("DownloadLatency", "Using item: ${file.documentId} name=${file.name} size=${file.size}")
+        Log.i("DownloadLatency", "Using item: ${file.documentId} name=${file.item.target.name} size=${file.item.target.size}")
         return file.documentId
     }
 

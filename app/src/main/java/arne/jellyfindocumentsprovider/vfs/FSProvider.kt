@@ -19,8 +19,14 @@ object FSProvider {
         when (vpath) {
             is VPath.User -> server.findByUUID(vpath.id)?.let { "${it.name}@${it.serverName}" }
             is VPath.Library -> server.findByLibraryId(vpath.id)?.library?.get(vpath.id)
-            is VPath.Album -> albumInfo.findAlbumByUUID(vpath.id).firstOrNull()?.name
-            is VPath.File -> virtualFile.findByDocumentId(vpath.id)?.name
+            is VPath.Album -> {
+                val serverId = server.findByUUID(vpath.rootId)?.id ?: return null
+                albumInfo.findAlbumByUUID(vpath.id, serverId).firstOrNull()?.name
+            }
+            is VPath.File -> {
+                val serverId = server.findByUUID(vpath.rootId)?.id ?: return null
+                virtualFile.findByDocumentId(vpath.id, serverId)?.item?.target?.name
+            }
         }
     }
 
@@ -43,14 +49,18 @@ object FSProvider {
             when (document) {
                 is VPath.User -> server.findByUUID(document.id)?.getLibrariesProjection(document)
                     ?: emptyList()
-                is VPath.Library -> (virtualFile.findAllByLibIdNotInAlbum(libId = document.id)
-                    .map { it.asDocumentProjection() } + albumInfo.findAllAlbumByLibId(
-                    libId = document.id
-                ).map { it.asDocumentProjection(document) })
+            is VPath.Library -> {
+                val serverId = server.findByUUID(document.userId)?.id ?: return emptyList()
+                val files = virtualFile.findAllByLibIdNotInAlbum(libId = document.id, serverId = serverId)
+                val albums = albumInfo.findAllAlbumByLibId(libId = document.id, serverId = serverId)
+                logcat { "FSProvider.getChildren Library: userId=${document.userId} serverId=$serverId files=${files.size} albums=${albums.size}" }
+                (files.map { it.asDocumentProjection() } + albums.map { it.asDocumentProjection(document) })
+                }
 
                 is VPath.Album -> {
-                    val files = virtualFile.findAllByAlbumId(document.id)
-                    logcat { "Album ${document.id}: ${files.size} files, types=${files.map { "${it.name}=${it.mimeType}" }}" }
+                    val serverId = server.findByUUID(document.userId)?.id ?: return emptyList()
+                    val files = virtualFile.findAllByAlbumId(document.id, serverId = serverId)
+                    logcat { "Album ${document.id}: ${files.size} files, types=${files.map { "${it.item.target.name}=${it.item.target.mimeType}" }}" }
                     files.map { it.asDocumentProjection() }
                 }
 
@@ -65,7 +75,10 @@ object FSProvider {
         val startTime = System.currentTimeMillis()
         val result = listOf(
             when (doc) {
-                is VPath.File -> virtualFile.findByDocumentId(doc.id)?.asDocumentProjection() ?: emptyList()
+                is VPath.File -> {
+                    val serverId = server.findByUUID(doc.rootId)?.id ?: 0L
+                    virtualFile.findByDocumentId(doc.id, serverId)?.asDocumentProjection() ?: emptyList()
+                }
                 else -> emptyDirProjection(doc.id, resolveName(doc) ?: "")
             }
         )
@@ -75,14 +88,20 @@ object FSProvider {
 
     fun Context.thumbnailFromCacheOrRemote(doc: VPath, sizeHint: Point?): ByteArray? {
         val startTime = System.currentTimeMillis()
-        val vf = ObjectBox.virtualFile.findByDocumentId(doc.id) ?: return null
-        val tc =
-            if (vf.albumId == null) vf.thumbCache else ObjectBox.albumInfo.findAlbumByUUID(vf.albumId)
-                .firstOrNull()?.thumbCache
+        val vf = with(ObjectBox) {
+            if (doc is VPath.File) {
+                val serverId = server.findByUUID(doc.rootId)?.id ?: return null
+                virtualFile.findByDocumentId(doc.id, serverId)
+            } else null
+        } ?: return null
+        val item = vf.item.target
+        val tc = if (item.albumId == null) item.thumbCache else ObjectBox.albumInfo.findAlbumByUUID(
+            item.albumId, vf.serverId
+        ).firstOrNull()?.thumbCache
 
         if (tc == null) return null
 
-        val uuid = vf.albumId ?: vf.documentId
+        val uuid = item.albumId ?: vf.documentId
         val thumbCache = tc.target
         if (thumbCache.notExists) return null
 
@@ -90,8 +109,8 @@ object FSProvider {
         if (cached != null) return cached
 
         val metaId = "thumb_$uuid"
-        StatusEventManager.startMetadata(metaId, "Fetching thumbnail for ${vf.name}")
-        logcat("Thumbnail", LogPriority.INFO) { "Fetching thumbnail for ${vf.name} (uuid=$uuid)" }
+        StatusEventManager.startMetadata(metaId, "Fetching thumbnail for ${item.name}")
+        logcat("Thumbnail", LogPriority.INFO) { "Fetching thumbnail for ${item.name} (uuid=$uuid)" }
 
         return runBlocking {
             try {
@@ -110,14 +129,14 @@ object FSProvider {
                     }
                 }
                 if (data != null) {
-                    logcat("Thumbnail", LogPriority.INFO) { "Thumbnail fetched for ${vf.name} (${data.size} bytes)" }
+                    logcat("Thumbnail", LogPriority.INFO) { "Thumbnail fetched for ${item.name} (${data.size} bytes)" }
                 } else {
-                    logcat("Thumbnail", LogPriority.INFO) { "No thumbnail available for ${vf.name}" }
+                    logcat("Thumbnail", LogPriority.INFO) { "No thumbnail available for ${item.name}" }
                 }
                 logcat(LogPriority.DEBUG) { "thumbnailFromCacheOrRemote: remote fetch done, took ${System.currentTimeMillis() - startTime}ms, size=${data?.size ?: 0}" }
                 data
             } catch (e: Exception) {
-                logcat("Thumbnail", LogPriority.ERROR) { "Failed to download thumbnail for ${vf.name}: ${e.message}" }
+                logcat("Thumbnail", LogPriority.ERROR) { "Failed to download thumbnail for ${item.name}: ${e.message}" }
                 null
             } finally {
                 StatusEventManager.finishMetadata(metaId)
@@ -130,10 +149,11 @@ object FSProvider {
         return with(ObjectBox) {
             when (doc) {
                 is VPath.File -> {
-                    val vf = virtualFile.findByDocumentId(doc.id) ?: return null
-                    val server = vf.server.target.asAccessor(this@streamThumbnail)
+                    val serverId = server.findByUUID(doc.rootId)?.id ?: return null
+                    val vf = virtualFile.findByDocumentId(doc.id, serverId) ?: return null
+                    val api = vf.server.target.asAccessor(this@streamThumbnail)
                     runBlocking {
-                        server.streamThumbnail(
+                        api.streamThumbnail(
                             vf.documentId, sizeHint?.x, sizeHint?.y
                         )
                     }
@@ -150,14 +170,15 @@ object FSProvider {
         val startTime = System.currentTimeMillis()
         return with(ObjectBox) {
             if (doc is VPath.File) {
-                val vf = virtualFile.findByDocumentId(doc.id) ?: return null
-                val server = vf.server.target.asAccessor(this@getAudioStreamFactory)
-                val fsf = runBlocking { server.getAudioFileStreamFactory(doc) }
+                val serverId = server.findByUUID(doc.rootId)?.id ?: return null
+                val vf = virtualFile.findByDocumentId(doc.id, serverId) ?: return null
+                val srv = vf.server.target.asAccessor(this@getAudioStreamFactory)
+                val fsf = runBlocking { srv.getAudioFileStreamFactory(doc) }
 
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         if (lyricsCache.findByVfDocId(vf.documentId) == null) {
-                            val lyrics = server.getLyrics(doc.id)
+                            val lyrics = srv.getLyrics(doc.id)
                             lyricsCache.put(LyricsCache(vfDocId = vf.documentId, lyrics = lyrics))
                             logcat(LogPriority.DEBUG) { "Lyrics cached for ${vf.documentId}" }
                         }

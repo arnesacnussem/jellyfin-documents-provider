@@ -3,6 +3,7 @@ package arne.jellyfindocumentsprovider.provider
 import android.provider.DocumentsContract.Document
 import android.provider.MediaStore.Audio.AudioColumns
 import arne.jellyfindocumentsprovider.vfs.AlbumInfo
+import arne.jellyfindocumentsprovider.vfs.ItemRecord
 import arne.jellyfindocumentsprovider.vfs.JellyfinServer
 import arne.jellyfindocumentsprovider.vfs.VPath
 import arne.jellyfindocumentsprovider.vfs.VirtualFile
@@ -10,6 +11,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ProjectionMapperTest {
+
+    private fun vfWithItem(
+        name: String, docId: String, mimeType: String,
+        displayName: String, lastModified: Long = 0, size: Long = 0,
+        libId: String = "lib-1", serverId: Long = 1L,
+        duration: Long? = null, year: Int? = null,
+        title: String? = null, album: String? = null,
+        track: Int? = null, artist: String? = null,
+        bitrate: Int? = null
+    ): VirtualFile {
+        val item = ItemRecord(
+            documentId = docId, name = name, mimeType = mimeType,
+            displayName = displayName, lastModified = lastModified, size = size,
+            duration = duration, year = year, title = title,
+            album = album, track = track, artist = artist,
+            bitrate = bitrate, albumId = null, albumCoverTag = null,
+        )
+        val vf = VirtualFile(
+            documentId = docId, libId = libId, serverId = serverId, albumId = null,
+        )
+        vf.item.target = item
+        return vf
+    }
 
     @Test
     fun emptyDirProjection_basic() {
@@ -23,12 +47,12 @@ class ProjectionMapperTest {
 
     @Test
     fun virtualFileAsDocumentProjection_basic() {
-        val vf = VirtualFile(
-            name = "song.mp3", documentId = "doc-1", mimeType = "audio/mpeg",
+        val vf = vfWithItem(
+            name = "song.mp3", docId = "doc-1", mimeType = "audio/mpeg",
             displayName = "Song", lastModified = 2000L, size = 10000L,
-            libId = "lib-1", serverId = 1L, duration = 300L, year = 2024,
+            duration = 300L, year = 2024,
             title = "Song Title", album = "Album Name", track = 5,
-            artist = "Artist Name", bitrate = 320, albumId = null, albumCoverTag = null
+            artist = "Artist Name", bitrate = 320
         )
         val proj = vf.asDocumentProjection().toMap()
         assertEquals("", proj[Document.COLUMN_DOCUMENT_ID])
@@ -100,7 +124,6 @@ class ProjectionMapperTest {
             listOf("col_a" to 1, "col_b" to "hello"),
             listOf("col_a" to 2, "col_b" to "world"),
         )
-        // Test the projection extraction logic: flatten + distinct keys
         val projections = rows.flatten().map { it.first }.toSet().toTypedArray()
         assertArrayEquals(arrayOf("col_a", "col_b"), projections)
     }
@@ -110,7 +133,6 @@ class ProjectionMapperTest {
         val rows = listOf(
             listOf("col_a" to 1, "col_b" to "hello"),
         )
-        // Verify the explicit projection overload works without Android runtime
         val explicitProjections = arrayOf("col_a", "col_b")
         val extracted = rows.flatten().map { it.first }.toSet().toTypedArray()
         assertArrayEquals(explicitProjections, extracted)
