@@ -70,7 +70,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import java.io.File
 
-private enum class ConfirmAction { CleanIncomplete, CleanAll }
+private enum class ConfirmAction { CleanFileCache, CleanThumbnails }
 
 data class CacheEntryDisplay(
     val id: Long,
@@ -144,7 +144,7 @@ fun CacheMgrScreen() {
         }
     }
 
-    fun cleanIncomplete() {
+    fun cleanFileIncomplete() {
         val incomplete = cacheEntries.filter { !it.isComplete }
         cacheEntries = cacheEntries.filter { it.isComplete }
         scope.launch(Dispatchers.IO) {
@@ -156,15 +156,26 @@ fun CacheMgrScreen() {
         }
     }
 
-    fun cleanAll() {
+    fun cleanFileAll() {
         cacheEntries = emptyList()
-        thumbCount = 0
         scope.launch(Dispatchers.IO) {
             val repos = AppDependencies.repos
             val allInfos = repos.cacheInfo.findAll()
             allInfos.forEach { File(it.localPath).delete() }
             repos.cacheInfo.deleteAll()
-            repos.thumbCache.deleteAll()
+        }
+    }
+
+    fun cleanThumbnailsNullOnly() {
+        scope.launch(Dispatchers.IO) {
+            AppDependencies.repos.thumbCache.deleteNullEntries()
+        }
+    }
+
+    fun cleanThumbnailsAll() {
+        thumbCount = 0
+        scope.launch(Dispatchers.IO) {
+            AppDependencies.repos.thumbCache.deleteAll()
         }
     }
 
@@ -197,9 +208,9 @@ fun CacheMgrScreen() {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Button(
-                    onClick = { confirmDialog = ConfirmAction.CleanIncomplete },
+                    onClick = { confirmDialog = ConfirmAction.CleanFileCache },
                     modifier = Modifier.weight(1f),
-                    enabled = cacheEntries.any { !it.isComplete },
+                    enabled = cacheEntries.isNotEmpty(),
                 ) {
                     Icon(
                         Icons.Outlined.CleaningServices,
@@ -207,12 +218,12 @@ fun CacheMgrScreen() {
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Clean Incomplete")
+                    Text("Clean File Cache")
                 }
                 Button(
-                    onClick = { confirmDialog = ConfirmAction.CleanAll },
+                    onClick = { confirmDialog = ConfirmAction.CleanThumbnails },
                     modifier = Modifier.weight(1f),
-                    enabled = cacheEntries.isNotEmpty(),
+                    enabled = thumbCount > 0,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
                     ),
@@ -223,7 +234,7 @@ fun CacheMgrScreen() {
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("Clean All")
+                    Text("Clean Thumbnails")
                 }
             }
         }
@@ -276,40 +287,51 @@ fun CacheMgrScreen() {
             title = {
                 Text(
                     when (action) {
-                        ConfirmAction.CleanIncomplete -> "Clean Incomplete Files"
-                        ConfirmAction.CleanAll -> "Clean All Cache"
+                        ConfirmAction.CleanFileCache -> "Clean File Cache"
+                        ConfirmAction.CleanThumbnails -> "Clean Thumbnails"
                     }
                 )
             },
             text = {
                 Text(
                     when (action) {
-                        ConfirmAction.CleanIncomplete ->
-                            "Delete all incomplete cached files? This cannot be undone."
-                        ConfirmAction.CleanAll ->
-                            "Delete all cached files and thumbnails? This cannot be undone."
+                        ConfirmAction.CleanFileCache -> "Remove cached file data?"
+                        ConfirmAction.CleanThumbnails -> "Remove thumbnail cache entries?"
                     }
                 )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmDialog = null
-                        when (action) {
-                            ConfirmAction.CleanIncomplete -> cleanIncomplete()
-                            ConfirmAction.CleanAll -> cleanAll()
-                        }
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error,
-                    ),
-                ) {
-                    Text(
-                        when (action) {
-                            ConfirmAction.CleanIncomplete -> "Clean"
-                            ConfirmAction.CleanAll -> "Delete All"
-                        }
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        onClick = {
+                            confirmDialog = null
+                            when (action) {
+                                ConfirmAction.CleanFileCache -> cleanFileIncomplete()
+                                ConfirmAction.CleanThumbnails -> cleanThumbnailsNullOnly()
+                            }
+                        },
+                    ) {
+                        Text(
+                            when (action) {
+                                ConfirmAction.CleanFileCache -> "Clear Incomplete"
+                                ConfirmAction.CleanThumbnails -> "Clear Null Only"
+                            }
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            confirmDialog = null
+                            when (action) {
+                                ConfirmAction.CleanFileCache -> cleanFileAll()
+                                ConfirmAction.CleanThumbnails -> cleanThumbnailsAll()
+                            }
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    ) {
+                        Text("Clear All")
+                    }
                 }
             },
             dismissButton = {

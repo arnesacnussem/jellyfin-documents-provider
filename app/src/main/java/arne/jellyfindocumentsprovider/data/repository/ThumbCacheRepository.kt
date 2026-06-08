@@ -6,5 +6,7 @@ interface ThumbCacheRepository {
     fun put(thumbCache: ThumbCache)
     fun count(): Long
     fun countWithData(): Long
+    fun countWithoutData(): Long
     fun deleteAll()
+    fun deleteNullEntries()
 }
