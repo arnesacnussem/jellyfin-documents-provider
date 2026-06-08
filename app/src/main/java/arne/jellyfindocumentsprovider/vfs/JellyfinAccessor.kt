@@ -17,6 +17,7 @@ import org.jellyfin.sdk.api.client.extensions.playStateApi
 import org.jellyfin.sdk.api.client.extensions.quickConnectApi
 import org.jellyfin.sdk.api.client.extensions.systemApi
 import org.jellyfin.sdk.api.client.extensions.userApi
+import org.jellyfin.sdk.api.client.extensions.userLibraryApi
 import org.jellyfin.sdk.api.client.extensions.userViewsApi
 import org.jellyfin.sdk.api.client.util.AuthorizationHeaderBuilder
 import org.jellyfin.sdk.createJellyfin
@@ -83,6 +84,7 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
                         ItemFields.MEDIA_STREAMS,
                         ItemFields.MEDIA_SOURCES,
                     ),
+                    enableUserData = true,
                     startIndex = startIndex,
                     imageTypeLimit = 1,
                     enableImageTypes = setOf(ImageType.PRIMARY),
@@ -92,6 +94,37 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
             ).content
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Error querying Jellyfin API: ${e.stackTraceToString()}" }
+            null
+        }
+    }
+
+    override suspend fun queryFavoriteAudioItems(
+        parentId: String, startIndex: Int, limit: Int
+    ): BaseItemDtoQueryResult? {
+        return try {
+            api.itemsApi.getItems(
+                GetItemsRequest(
+                    sortBy = listOf(ItemSortBy.SORT_NAME),
+                    sortOrder = setOf(SortOrder.ASCENDING),
+                    includeItemTypes = setOf(BaseItemKind.AUDIO),
+                    recursive = true,
+                    fields = setOf(
+                        ItemFields.DATE_CREATED,
+                        ItemFields.SORT_NAME,
+                        ItemFields.MEDIA_STREAMS,
+                        ItemFields.MEDIA_SOURCES,
+                    ),
+                    enableUserData = true,
+                    isFavorite = true,
+                    startIndex = startIndex,
+                    imageTypeLimit = 1,
+                    enableImageTypes = setOf(ImageType.PRIMARY),
+                    limit = limit,
+                    parentId = parentId.toUUID()
+                )
+            ).content
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "Error querying Jellyfin favorites: ${e.stackTraceToString()}" }
             null
         }
     }
@@ -195,6 +228,14 @@ class JellyfinAccessor(val ctx: Context, val credential: JellyfinServer) : Jelly
                 failed = false,
             )
         )
+    }
+
+    override suspend fun markFavoriteItem(itemId: String) {
+        api.userLibraryApi.markFavoriteItem(itemId.toUUID())
+    }
+
+    override suspend fun unmarkFavoriteItem(itemId: String) {
+        api.userLibraryApi.unmarkFavoriteItem(itemId.toUUID())
     }
 
     override suspend fun getAudioStreamFactory(itemId: String, bps: Int): FileStreamFactory =

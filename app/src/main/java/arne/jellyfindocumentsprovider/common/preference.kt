@@ -11,13 +11,16 @@ enum class PrefKeys(private val defaultEnum: Enum<*>, val asEnum: (name: String)
     BITRATE_LIMIT_TYPE(BitrateLimitType.NONE, { BitrateLimitType.valueOf(it) }),
     WAVE_TYPE(WaveType.REAL, { WaveType.valueOf(it) }),
     LOG_LEVEL(LogPriority.INFO, { LogPriority.valueOf(it) }),
-    POWERAMP_SCAN_ON_SYNC(PowerampScanToggle.DISABLED, { PowerampScanToggle.valueOf(it) });
+    POWERAMP_SCAN_ON_SYNC(PowerampScanToggle.DISABLED, { PowerampScanToggle.valueOf(it) }),
+    SYNC_LIKES_TO_POWERAMP(SyncLikeToggle.DISABLED, { SyncLikeToggle.valueOf(it) }),
+    SYNC_RATINGS_TO_JELLYFIN(SyncLikeToggle.DISABLED, { SyncLikeToggle.valueOf(it) });
 
     val defaultVal
         get() = defaultEnum.name
 }
 
 enum class PowerampScanToggle { ENABLED, DISABLED }
+enum class SyncLikeToggle { ENABLED, DISABLED }
 
 enum class BitrateLimitType(
     val readable: String,

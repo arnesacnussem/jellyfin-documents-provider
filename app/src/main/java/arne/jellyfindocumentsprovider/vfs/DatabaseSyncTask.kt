@@ -1,6 +1,11 @@
 package arne.jellyfindocumentsprovider.vfs
 
+import android.content.Context
+import android.preference.PreferenceManager
+import arne.jellyfindocumentsprovider.common.PrefKeys
 import arne.jellyfindocumentsprovider.common.StatusEventManager
+import arne.jellyfindocumentsprovider.common.SyncLikeToggle
+import arne.jellyfindocumentsprovider.common.getEnum
 import arne.jellyfindocumentsprovider.data.AppRepos
 import arne.jellyfindocumentsprovider.vfs.VirtualFile.Companion.toVirtualFile
 import logcat.LogPriority
@@ -10,6 +15,7 @@ class DatabaseSyncTask(
     private val api: JellyfinApi,
     private val repos: AppRepos,
     private val credential: JellyfinServer,
+    private val context: Context,
 ) {
     suspend fun sync(
         batchSize: Int = 1000,
@@ -90,6 +96,90 @@ class DatabaseSyncTask(
             "[${credential.name}] sync complete"
         }
         StatusEventManager.finishSync(syncId)
+
+        try {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            if (prefs.getEnum<SyncLikeToggle>(PrefKeys.SYNC_LIKES_TO_POWERAMP) == SyncLikeToggle.ENABLED) {
+                PowerampRatingSync.pushAllLikesToPoweramp(context)
+            }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to push likes to Poweramp: ${e.message}" }
+        }
+    }
+
+    suspend fun syncFavorites(
+        batchSize: Int = 1000,
+        onProgress: (text: String, current: Int, currentTotal: Int) -> Unit
+    ) {
+        val syncId = credential.uuid
+        StatusEventManager.startSync(syncId, "[${credential.name}] syncing favorites...")
+
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] syncing favorites for ${credential.info}"
+        }
+
+        onProgress("getting favorited items...", 0, -1)
+        val libraryTotal = credential.library.keys.associateWith {
+            api.queryFavoriteAudioItems(it, limit = 0)?.totalRecordCount ?: 0
+        }
+
+        val total = libraryTotal.values.sum()
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] total favorited items: $total"
+        }
+        onProgress("found $total favorited items", 0, total)
+
+        if (total == 0) {
+            StatusEventManager.finishSync(syncId)
+            return
+        }
+
+        val favoriteIds = mutableSetOf<String>()
+        var proceed = 0
+
+        libraryTotal.forEach { (libId, libTotal) ->
+            val fetchedItems = fetchFavoriteItemsInBatches(libId = libId,
+                batchSize = batchSize,
+                totalItems = libTotal,
+                onFetch = { items ->
+                    items.forEach { item ->
+                        item.id?.asString()?.let { favoriteIds.add(it) }
+                    }
+                    proceed += items.size
+                    onProgress("syncing favorites: $libId ...", proceed, total)
+                    StatusEventManager.updateSync(syncId, "[${credential.name}] favorites $proceed/$total", proceed.toFloat() / total)
+                })
+
+            if (!fetchedItems) {
+                logcat("DatabaseSyncTask", LogPriority.ERROR) {
+                    "[${credential.name}] failed to fetch favorites for library $libId"
+                }
+            }
+        }
+
+        val allVf = repos.virtualFile.findAll()
+        var updated = 0
+        for (vf in allVf) {
+            val shouldBeFavorite = favoriteIds.contains(vf.documentId)
+            if (vf.isFavorite != shouldBeFavorite) {
+                repos.virtualFile.put(vf.copy(isFavorite = shouldBeFavorite))
+                updated++
+            }
+        }
+
+        logcat("DatabaseSyncTask", LogPriority.INFO) {
+            "[${credential.name}] favorites sync complete: updated $updated items"
+        }
+        StatusEventManager.finishSync(syncId)
+
+        try {
+            val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+            if (prefs.getEnum<SyncLikeToggle>(PrefKeys.SYNC_LIKES_TO_POWERAMP) == SyncLikeToggle.ENABLED) {
+                PowerampRatingSync.pushAllLikesToPoweramp(context)
+            }
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR) { "Failed to push likes to Poweramp: ${e.message}" }
+        }
     }
 
     /**
@@ -169,6 +259,27 @@ class DatabaseSyncTask(
         for (batch in 0 until numberOfBatches) {
             val startIndex = batch * batchSize
             val items = api.queryAudioItems(libId, startIndex, batchSize)?.items
+
+            if (items != null) {
+                onFetch(items)
+            } else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private suspend fun fetchFavoriteItemsInBatches(
+        batchSize: Int,
+        totalItems: Int,
+        libId: String,
+        onFetch: (List<BaseItemDto>) -> Unit,
+    ): Boolean {
+        val numberOfBatches = (totalItems + batchSize - 1) / batchSize
+
+        for (batch in 0 until numberOfBatches) {
+            val startIndex = batch * batchSize
+            val items = api.queryFavoriteAudioItems(libId, startIndex, batchSize)?.items
 
             if (items != null) {
                 onFetch(items)

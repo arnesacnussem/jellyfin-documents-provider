@@ -54,12 +54,13 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
     }
 
     override fun doWork(): Result {
+        val favoritesOnly = inputData.getBoolean("favorites_only", false)
         return runBlocking {
-            sync(servers = arne.jellyfindocumentsprovider.data.AppDependencies.repos.server.findAll())
+            sync(servers = arne.jellyfindocumentsprovider.data.AppDependencies.repos.server.findAll(), favoritesOnly)
         }
     }
 
-    private suspend fun sync(servers: List<JellyfinServer>): Result {
+    private suspend fun sync(servers: List<JellyfinServer>, favoritesOnly: Boolean = false): Result {
         if (servers.isEmpty()) {
             logcat(LogPriority.WARN) {
                 "some of the credential not found"
@@ -79,20 +80,39 @@ class DatabaseSyncWorker(appContext: Context, workerParams: WorkerParameters) :
                 api = c.asAccessor(applicationContext),
                 repos = arne.jellyfindocumentsprovider.data.AppDependencies.repos,
                 credential = c,
+                context = applicationContext,
             )
-            task.sync { text, proceed, total ->
-                notificationManager.notify(
-                    PROGRESS_NOTIFICATION_ID,
-                    notificationBuilder
-                        .setProgress(total, proceed, false)
-                        .setContentTitle("[${index + 1}/${servers.size}] Syncing Database ${c.info}")
-                        .setContentText(text)
-                        .build()
-                )
-                val percent = if (total <= 0) -1 else 100 * proceed / total
-                setProgressAsync(
-                    SyncTaskProgress(proceed, total).toWorkData()
-                )
+            val title = if (favoritesOnly) "Favorites" else "Syncing Database"
+            if (favoritesOnly) {
+                task.syncFavorites { text, proceed, total ->
+                    notificationManager.notify(
+                        PROGRESS_NOTIFICATION_ID,
+                        notificationBuilder
+                            .setProgress(total, proceed, false)
+                            .setContentTitle("[${index + 1}/${servers.size}] $title ${c.info}")
+                            .setContentText(text)
+                            .build()
+                    )
+                    val percent = if (total <= 0) -1 else 100 * proceed / total
+                    setProgressAsync(
+                        SyncTaskProgress(proceed, total).toWorkData()
+                    )
+                }
+            } else {
+                task.sync { text, proceed, total ->
+                    notificationManager.notify(
+                        PROGRESS_NOTIFICATION_ID,
+                        notificationBuilder
+                            .setProgress(total, proceed, false)
+                            .setContentTitle("[${index + 1}/${servers.size}] $title ${c.info}")
+                            .setContentText(text)
+                            .build()
+                    )
+                    val percent = if (total <= 0) -1 else 100 * proceed / total
+                    setProgressAsync(
+                        SyncTaskProgress(proceed, total).toWorkData()
+                    )
+                }
             }
         }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import arne.jellyfindocumentsprovider.common.PowerampScanToggle
 import arne.jellyfindocumentsprovider.common.PrefKeys
+import arne.jellyfindocumentsprovider.common.SyncLikeToggle
 import arne.jellyfindocumentsprovider.common.getEnum
 
 @Composable
@@ -35,6 +36,17 @@ fun SettingScreen() {
     var powerampScanEnabled by remember {
         mutableStateOf(
             prefs.getEnum<PowerampScanToggle>(PrefKeys.POWERAMP_SCAN_ON_SYNC) == PowerampScanToggle.ENABLED
+        )
+    }
+
+    var syncLikesToPA by remember {
+        mutableStateOf(
+            prefs.getEnum<SyncLikeToggle>(PrefKeys.SYNC_LIKES_TO_POWERAMP) == SyncLikeToggle.ENABLED
+        )
+    }
+    var syncRatingsToJF by remember {
+        mutableStateOf(
+            prefs.getEnum<SyncLikeToggle>(PrefKeys.SYNC_RATINGS_TO_JELLYFIN) == SyncLikeToggle.ENABLED
         )
     }
 
@@ -67,6 +79,70 @@ fun SettingScreen() {
                         .putString(
                             PrefKeys.POWERAMP_SCAN_ON_SYNC.name,
                             if (checked) PowerampScanToggle.ENABLED.name else PowerampScanToggle.DISABLED.name
+                        )
+                        .apply()
+                },
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Sync likes to Poweramp",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Push Jellyfin like/dislike status to Poweramp ratings after sync",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = syncLikesToPA,
+                onCheckedChange = { checked ->
+                    syncLikesToPA = checked
+                    prefs.edit()
+                        .putString(
+                            PrefKeys.SYNC_LIKES_TO_POWERAMP.name,
+                            if (checked) SyncLikeToggle.ENABLED.name else SyncLikeToggle.DISABLED.name
+                        )
+                        .apply()
+                },
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Sync ratings to Jellyfin",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Update Jellyfin like/dislike when rating changes in Poweramp",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = syncRatingsToJF,
+                onCheckedChange = { checked ->
+                    syncRatingsToJF = checked
+                    prefs.edit()
+                        .putString(
+                            PrefKeys.SYNC_RATINGS_TO_JELLYFIN.name,
+                            if (checked) SyncLikeToggle.ENABLED.name else SyncLikeToggle.DISABLED.name
                         )
                         .apply()
                 },

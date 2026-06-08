@@ -19,6 +19,8 @@ interface JellyfinApi {
 
     suspend fun queryAudioItems(parentId: String, startIndex: Int = 0, limit: Int = 100): BaseItemDtoQueryResult?
 
+    suspend fun queryFavoriteAudioItems(parentId: String, startIndex: Int = 0, limit: Int = 100): BaseItemDtoQueryResult?
+
     suspend fun downloadThumbnail(itemId: String, width: Int? = 250, height: Int? = 250): ByteArray?
 
     suspend fun streamThumbnail(itemId: String, width: Int? = 250, height: Int? = 250): Stream?
@@ -36,4 +38,7 @@ interface JellyfinApi {
     suspend fun reportPlaybackProgress(itemId: String, playSessionId: String?, positionTicks: Long? = null, isPaused: Boolean)
 
     suspend fun reportPlaybackStopped(itemId: String, playSessionId: String? = null, positionTicks: Long? = null)
+
+    suspend fun markFavoriteItem(itemId: String)
+    suspend fun unmarkFavoriteItem(itemId: String)
 }

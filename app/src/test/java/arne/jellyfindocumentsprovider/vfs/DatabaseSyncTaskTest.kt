@@ -1,5 +1,6 @@
 package arne.jellyfindocumentsprovider.vfs
 
+import android.content.Context
 import arne.jellyfindocumentsprovider.data.AppRepos
 import arne.jellyfindocumentsprovider.data.repository.*
 import io.mockk.*
@@ -19,6 +20,7 @@ class DatabaseSyncTaskTest {
     private val vfRepo = mockk<VirtualFileRepository>(relaxed = true)
     private val albumInfoRepo = mockk<AlbumInfoRepository>(relaxed = true)
     private val thumbCacheRepo = mockk<ThumbCacheRepository>(relaxed = true)
+    private val context = mockk<Context>(relaxed = true)
 
     private val repos = AppRepos(
         server = serverRepo,
@@ -33,7 +35,7 @@ class DatabaseSyncTaskTest {
         username = "user", token = "tok", library = mapOf("lib1" to "Music")
     )
 
-    private val task get() = DatabaseSyncTask(api, repos, credential)
+    private val task get() = DatabaseSyncTask(api, repos, credential, context)
 
     private fun audioItem(id: UUID = UUID.randomUUID(), name: String = "Song",
                           albumId: UUID? = null, album: String? = null) =

@@ -37,6 +37,9 @@ The app syncs library metadata (albums, tracks, artwork) to a local database. Wh
 - [x] **In-app log viewer** — real-time ring buffer log with level filtering and auto-scroll
 - [x] **Live status monitoring** — sync, metadata fetch, and network download progress in the status bar
 - [x] **Secure token storage** — AES256-GCM encrypted token storage via EncryptedSharedPreferences
+- [x] **Quick Connect login** — scan a Jellyfin Quick Connect code instead of entering username/password
+- [x] **Poweramp favorite sync** — bidirectionally sync Jellyfin favorites with Poweramp ratings via per-track API and bulk DB push, with configurable toggles
+- [x] **In-app settings** — toggle Poweramp scan-on-sync, like-sync direction, bitrate limits, and logging level
 - [ ] 401 / token expiry re-login
 - [ ] User-facing notifications (sync complete, errors)
 - [ ] Better UI polish

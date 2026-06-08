@@ -15,9 +15,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inbox
@@ -138,6 +139,11 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                 if (backStackEntry.value?.destination?.route == AppRoute.Home.name) {
                     IconButton(onClick = {
                         with(appViewModel) {
+                            workManager.requestFavoritesSync()
+                        }
+                    }, content = { Icon(Icons.Filled.Star, contentDescription = "Sync Favorites") })
+                    IconButton(onClick = {
+                        with(appViewModel) {
                             workManager.requestSync()
                         }
                     }, content = { Icon(Icons.Filled.Sync, contentDescription = "Sync") })
@@ -238,6 +244,6 @@ sealed class AppRoute(
 ) {
     data object Home : AppRoute("Home", Icons.Outlined.Home, Icons.Filled.Home)
     data object Cache : AppRoute("Caches", Icons.Outlined.Inbox, Icons.Filled.Inbox)
-    data object Logs : AppRoute("Logs", Icons.AutoMirrored.Outlined.List, Icons.AutoMirrored.Filled.List)
+    data object Logs : AppRoute("Logs", Icons.AutoMirrored.Outlined.FormatListBulleted, Icons.AutoMirrored.Filled.FormatListBulleted)
     data object Settings : AppRoute("Settings", Icons.Outlined.Settings, Icons.Filled.Settings)
 }

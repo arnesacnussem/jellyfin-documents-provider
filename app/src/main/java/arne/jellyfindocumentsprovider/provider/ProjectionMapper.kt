@@ -50,6 +50,7 @@ fun VirtualFile.asDocumentProjection(): List<Pair<String, Any?>> {
         AudioColumns.ARTIST to artist,
         AudioColumns.BITRATE to bitrate,
         AudioColumns.YEAR to year,
+        VirtualFile::isFavorite.name to isFavorite,
     )
 }
 

@@ -39,6 +39,8 @@ data class VirtualFile(
     val albumId: String?,
     val albumCoverTag: String?,
 
+    val isFavorite: Boolean = false,
+
     // following is for improve performance
     val providerId: String = "",
 ) {
@@ -71,7 +73,8 @@ data class VirtualFile(
                 artist = artists?.joinToString(", ") ?: "",
                 bitrate = mediaSources?.firstOrNull()?.bitrate ?: 0,
                 albumId = albumId?.asString(),
-                albumCoverTag = albumPrimaryImageTag
+                albumCoverTag = albumPrimaryImageTag,
+                isFavorite = userData?.isFavorite ?: false,
             ).also {
                 it.server.target = credential
             }

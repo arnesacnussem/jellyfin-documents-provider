@@ -5,6 +5,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
+import androidx.work.Data
 import arne.jellyfindocumentsprovider.data.AppDependencies
 import arne.jellyfindocumentsprovider.ui.components.ServerListEntryInfo
 import arne.jellyfindocumentsprovider.vfs.DatabaseSyncWorker
@@ -50,6 +51,19 @@ class AppViewModel : ViewModel() {
         }
         _sync.value = OneTimeWorkRequestBuilder<DatabaseSyncWorker>()
             .setExpedited(OutOfQuotaPolicy.DROP_WORK_REQUEST)
+            .build()
+        this.enqueue(_sync.value!!)
+    }
+
+    @Synchronized
+    fun WorkManager.requestFavoritesSync() {
+        if (_sync.value != null) {
+            logcat { "Sync already in progress" }
+            return
+        }
+        _sync.value = OneTimeWorkRequestBuilder<DatabaseSyncWorker>()
+            .setExpedited(OutOfQuotaPolicy.DROP_WORK_REQUEST)
+            .setInputData(Data.Builder().putBoolean("favorites_only", true).build())
             .build()
         this.enqueue(_sync.value!!)
     }
