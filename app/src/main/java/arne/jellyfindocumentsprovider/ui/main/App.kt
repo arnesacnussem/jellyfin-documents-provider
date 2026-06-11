@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inbox
 
@@ -70,6 +72,7 @@ import arne.jellyfindocumentsprovider.common.LocalSnackbarHostState
 import arne.jellyfindocumentsprovider.common.PrefKeys
 import arne.jellyfindocumentsprovider.common.StatusEventManager
 import arne.jellyfindocumentsprovider.common.getEnum
+import arne.jellyfindocumentsprovider.ui.browser.CacheBrowserScreen
 import arne.jellyfindocumentsprovider.ui.components.StatusChips
 import arne.jellyfindocumentsprovider.ui.components.StatusDetailDialog
 import logcat.LogPriority
@@ -161,7 +164,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
             BottomAppBar {
                 NavigationBar {
                     listOf(
-                        AppRoute.Home, AppRoute.Cache, AppRoute.Logs, AppRoute.Settings
+                        AppRoute.Home, AppRoute.Browse, AppRoute.Cache, AppRoute.Logs, AppRoute.Settings
                     ).forEach {
                         val selected = it.name == backStackEntry.value?.destination?.route
                         NavigationBarItem(icon = {
@@ -172,7 +175,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                         }, label = { Text(it.name) }, selected = selected, onClick = {
                             if (selected) return@NavigationBarItem
 
-                            val routes = listOf(AppRoute.Home, AppRoute.Cache, AppRoute.Logs, AppRoute.Settings)
+                            val routes = listOf(AppRoute.Home, AppRoute.Browse, AppRoute.Cache, AppRoute.Logs, AppRoute.Settings)
                             val currentIndex = routes.indexOfFirst { r -> r.name == backStackEntry.value?.destination?.route }
                             val targetIndex = routes.indexOf(it)
                             slideDirection = if (targetIndex > currentIndex) 1 else -1
@@ -209,6 +212,7 @@ fun App(appViewModel: AppViewModel = viewModel()) {
                 },
             ) {
                 composable(AppRoute.Home.name) { Wrapper(viewModelStoreOwner) { HomeScreen() } }
+                composable(AppRoute.Browse.name) { Wrapper(viewModelStoreOwner) { CacheBrowserScreen() } }
                 composable(AppRoute.Cache.name) { Wrapper(viewModelStoreOwner) { CacheMgrScreen() } }
                 composable(AppRoute.Logs.name) { LogScreen(logFilterLevel) }
                 composable(AppRoute.Settings.name) { Wrapper(viewModelStoreOwner) { SettingScreen() } }
@@ -243,6 +247,7 @@ sealed class AppRoute(
     val selectedIcon: ImageVector,
 ) {
     data object Home : AppRoute("Home", Icons.Outlined.Home, Icons.Filled.Home)
+    data object Browse : AppRoute("Browse", Icons.Outlined.FolderOpen, Icons.Filled.FolderOpen)
     data object Cache : AppRoute("Caches", Icons.Outlined.Inbox, Icons.Filled.Inbox)
     data object Logs : AppRoute("Logs", Icons.AutoMirrored.Outlined.FormatListBulleted, Icons.AutoMirrored.Filled.FormatListBulleted)
     data object Settings : AppRoute("Settings", Icons.Outlined.Settings, Icons.Filled.Settings)

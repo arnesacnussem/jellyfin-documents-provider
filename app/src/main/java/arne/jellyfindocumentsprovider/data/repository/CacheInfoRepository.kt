@@ -5,6 +5,7 @@ import arne.jellyfindocumentsprovider.vfs.VirtualFile
 
 interface CacheInfoRepository {
     fun getOrCreate(vf: VirtualFile, path: String): CacheInfo
+    fun findByVfDocId(vfDocId: String): CacheInfo?
     fun put(cacheInfo: CacheInfo)
     fun findAll(): List<CacheInfo>
     fun delete(id: Long)

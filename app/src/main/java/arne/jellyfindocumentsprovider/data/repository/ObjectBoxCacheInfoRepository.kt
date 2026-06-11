@@ -18,6 +18,10 @@ class ObjectBoxCacheInfoRepository(
         ).apply { box.put(this) }
     }
 
+    override fun findByVfDocId(vfDocId: String): CacheInfo? = box.query {
+        equal(CacheInfo_.vfDocId, vfDocId, QueryBuilder.StringOrder.CASE_SENSITIVE)
+    }.findFirst()
+
     override fun put(cacheInfo: CacheInfo) {
         box.put(cacheInfo)
     }
