@@ -13,6 +13,7 @@ import logcat.logcat
 class FilesystemService(
     private val repos: AppRepos,
     private val apiFactory: (JellyfinServer) -> JellyfinApi,
+    private val highResThumbnails: () -> Boolean = { false },
 ) {
     fun resolveName(vpath: VPath): String? {
         return when (vpath) {
@@ -92,11 +93,13 @@ class FilesystemService(
         return thumbCache.data ?: runBlocking {
             try {
                 val api = apiFactory(vf.server.target)
+                val w = if (highResThumbnails()) null else sizeHint?.x
+                val h = if (highResThumbnails()) null else sizeHint?.y
                 val data = ThumbnailFetchCoordinator.fetch(uuid) {
                     api.downloadThumbnail(
                         itemId = uuid,
-                        width = sizeHint?.x,
-                        height = sizeHint?.y
+                        width = w,
+                        height = h
                     )
                 }
                 thumbCache.update {
@@ -112,13 +115,15 @@ class FilesystemService(
     }
 
     fun streamThumbnail(doc: VPath, sizeHint: Point?): JellyfinApi.Stream? {
+        val w = if (highResThumbnails()) null else sizeHint?.x
+        val h = if (highResThumbnails()) null else sizeHint?.y
         return when (doc) {
             is VPath.File -> {
                 val serverId = repos.server.findByUUID(doc.rootId)?.id ?: return null
                 val vf = repos.virtualFile.findByDocumentId(doc.id, serverId) ?: return null
                 val api = apiFactory(vf.server.target)
                 runBlocking {
-                    api.streamThumbnail(vf.documentId, sizeHint?.x, sizeHint?.y)
+                    api.streamThumbnail(vf.documentId, w, h)
                 }
             }
             else -> null

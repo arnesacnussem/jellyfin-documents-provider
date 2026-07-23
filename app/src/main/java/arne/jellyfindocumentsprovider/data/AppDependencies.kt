@@ -1,6 +1,10 @@
 package arne.jellyfindocumentsprovider.data
 
 import android.content.Context
+import android.preference.PreferenceManager
+import arne.jellyfindocumentsprovider.common.HighResThumbnailToggle
+import arne.jellyfindocumentsprovider.common.PrefKeys
+import arne.jellyfindocumentsprovider.common.getEnum
 import arne.jellyfindocumentsprovider.data.repository.ObjectBoxAlbumInfoRepository
 import arne.jellyfindocumentsprovider.data.repository.ObjectBoxCacheInfoRepository
 import arne.jellyfindocumentsprovider.data.repository.ObjectBoxItemRecordRepository
@@ -32,6 +36,9 @@ object AppDependencies {
             repos.server.put(server)
         }
         apiFactory = { server -> server.asAccessor(context) }
-        filesystemService = FilesystemService(repos, apiFactory)
+        filesystemService = FilesystemService(repos, apiFactory) {
+            PreferenceManager.getDefaultSharedPreferences(context)
+                .getEnum<HighResThumbnailToggle>(PrefKeys.HIGH_RES_THUMBNAIL) == HighResThumbnailToggle.ENABLED
+        }
     }
 }

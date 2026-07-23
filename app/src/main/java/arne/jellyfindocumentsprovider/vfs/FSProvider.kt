@@ -2,7 +2,11 @@ package arne.jellyfindocumentsprovider.vfs
 
 import android.content.Context
 import android.graphics.Point
+import android.preference.PreferenceManager
+import arne.jellyfindocumentsprovider.common.HighResThumbnailToggle
+import arne.jellyfindocumentsprovider.common.PrefKeys
 import arne.jellyfindocumentsprovider.common.StatusEventManager
+import arne.jellyfindocumentsprovider.common.getEnum
 import arne.jellyfindocumentsprovider.provider.asDocumentProjection
 import arne.jellyfindocumentsprovider.provider.emptyDirProjection
 import arne.jellyfindocumentsprovider.provider.getLibrariesProjection
@@ -104,14 +108,19 @@ object FSProvider {
         val metaId = "thumb_$uuid"
         StatusEventManager.startMetadata(metaId, "Fetching thumbnail for ${item.name}")
 
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val highRes = prefs.getEnum<HighResThumbnailToggle>(PrefKeys.HIGH_RES_THUMBNAIL) == HighResThumbnailToggle.ENABLED
+        val w = if (highRes) null else sizeHint?.x
+        val h = if (highRes) null else sizeHint?.y
+
         return runBlocking {
             try {
                 val api = vf.server.target.asAccessor(this@thumbnailFromCacheOrRemote)
                 val data = ThumbnailFetchCoordinator.fetch(uuid) {
                     api.downloadThumbnail(
                         itemId = uuid,
-                        width = sizeHint?.x,
-                        height = sizeHint?.y,
+                        width = w,
+                        height = h,
                     )
                 }
                 thumbCache.update {
@@ -136,6 +145,10 @@ object FSProvider {
 
 
     fun Context.streamThumbnail(doc: VPath, sizeHint: Point?): JellyfinApi.Stream? {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val highRes = prefs.getEnum<HighResThumbnailToggle>(PrefKeys.HIGH_RES_THUMBNAIL) == HighResThumbnailToggle.ENABLED
+        val w = if (highRes) null else sizeHint?.x
+        val h = if (highRes) null else sizeHint?.y
         return with(ObjectBox) {
             when (doc) {
                 is VPath.File -> {
@@ -144,7 +157,7 @@ object FSProvider {
                     val api = vf.server.target.asAccessor(this@streamThumbnail)
                     runBlocking {
                         api.streamThumbnail(
-                            vf.documentId, sizeHint?.x, sizeHint?.y
+                            vf.documentId, w, h
                         )
                     }
                 }

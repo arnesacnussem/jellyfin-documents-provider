@@ -18,3 +18,5 @@ local.properties
 .opencode/
 *.apk
 *.apk.zip
+DEVICE_TEST.md
+REQUIREMENTS.md

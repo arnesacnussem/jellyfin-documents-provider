@@ -13,12 +13,14 @@ enum class PrefKeys(private val defaultEnum: Enum<*>, val asEnum: (name: String)
     LOG_LEVEL(LogPriority.INFO, { LogPriority.valueOf(it) }),
     POWERAMP_SCAN_ON_SYNC(PowerampScanToggle.DISABLED, { PowerampScanToggle.valueOf(it) }),
     SYNC_LIKES_TO_POWERAMP(SyncLikeToggle.DISABLED, { SyncLikeToggle.valueOf(it) }),
-    SYNC_RATINGS_TO_JELLYFIN(SyncLikeToggle.DISABLED, { SyncLikeToggle.valueOf(it) });
+    SYNC_RATINGS_TO_JELLYFIN(SyncLikeToggle.DISABLED, { SyncLikeToggle.valueOf(it) }),
+    HIGH_RES_THUMBNAIL(HighResThumbnailToggle.DISABLED, { HighResThumbnailToggle.valueOf(it) });
 
     val defaultVal
         get() = defaultEnum.name
 }
 
+enum class HighResThumbnailToggle { ENABLED, DISABLED }
 enum class PowerampScanToggle { ENABLED, DISABLED }
 enum class SyncLikeToggle { ENABLED, DISABLED }
 

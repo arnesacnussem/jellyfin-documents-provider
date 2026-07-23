@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import arne.jellyfindocumentsprovider.common.HighResThumbnailToggle
 import arne.jellyfindocumentsprovider.common.PowerampScanToggle
 import arne.jellyfindocumentsprovider.common.PrefKeys
 import arne.jellyfindocumentsprovider.common.SyncLikeToggle
@@ -36,6 +37,12 @@ fun SettingScreen() {
     var powerampScanEnabled by remember {
         mutableStateOf(
             prefs.getEnum<PowerampScanToggle>(PrefKeys.POWERAMP_SCAN_ON_SYNC) == PowerampScanToggle.ENABLED
+        )
+    }
+
+    var highResThumbnails by remember {
+        mutableStateOf(
+            prefs.getEnum<HighResThumbnailToggle>(PrefKeys.HIGH_RES_THUMBNAIL) == HighResThumbnailToggle.ENABLED
         )
     }
 
@@ -143,6 +150,38 @@ fun SettingScreen() {
                         .putString(
                             PrefKeys.SYNC_RATINGS_TO_JELLYFIN.name,
                             if (checked) SyncLikeToggle.ENABLED.name else SyncLikeToggle.DISABLED.name
+                        )
+                        .apply()
+                },
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "High resolution thumbnails",
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Download thumbnails at original resolution instead of resizing them (uses more data and cache space)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Switch(
+                checked = highResThumbnails,
+                onCheckedChange = { checked ->
+                    highResThumbnails = checked
+                    prefs.edit()
+                        .putString(
+                            PrefKeys.HIGH_RES_THUMBNAIL.name,
+                            if (checked) HighResThumbnailToggle.ENABLED.name else HighResThumbnailToggle.DISABLED.name
                         )
                         .apply()
                 },
